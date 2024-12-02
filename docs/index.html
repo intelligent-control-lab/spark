@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="description" content="SPARK">
+    <meta name="keywords" content="AR, Safe RL, Humanoid">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SPARK</title>
+
+    <link
+      href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+      rel="stylesheet">
+
+    <link rel="stylesheet" href="./static/css/bulma.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+    <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <link rel="stylesheet" href="./static/css/index.css">
+
+    <script
+      src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="./static/js/fontawesome.all.min.js"></script>
+    <script src="./static/js/bulma-carousel.min.js"></script>
+    <script src="./static/js/bulma-slider.min.js"></script>
+    <script src="./static/js/index.js"></script>
+
+    <link rel="icon" href="./humanoid.ico">
+
+    <!-- facebook -->
+    <meta property="og:site_name" content="SPARK" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="SPARK: A Toolbox for Safe Humanoids" />
+    <meta property="og:description" content="Safeguarding humanoid research and development." />
+    <meta property="og:url" content="https://intelligent-control-lab.github.io/spark/" />
+    <meta property="og:image"content="https://intelligent-control-lab.github.io/spark/static/images/preview.jpg" />
+    <meta property="og:image:secure"content="https://intelligent-control-lab.github.io/spark/static/images/preview.jpg" />
+    <meta property="og:video"content="https://www.youtube.com/watch?v=vIzeQ31YbCM" />
+    <meta property="og:video:secure"content="https://www.youtube.com/watch?v=vIzeQ31YbCM" />
+    <meta property="og:image:width" content="1600" />
+    <meta property="og:image:height" content="900" />
+
+    <meta property="article:publisher" content="https://yifansun98.github.io" />
+
+    <!-- twitter -->
+    <!-- <meta name="twitter:label1" content="Written by" /> -->
+    <!-- <meta name="twitter:data1" content="Deepak Pathak" /> -->
+    <!-- <meta name="twitter:label2" content="Filed under" /> -->
+    <!-- <meta name="twitter:data2" content="" /> -->
+    <!-- <meta name="twitter:card" content="summary_large_image" /> -->
+    <!-- <meta name="twitter:image" content="https://intelligent-control-lab.github.io/spark/static/images/preview.jpg" /> -->
+    <!-- <meta name="twitter:site" content="@pathak2206" /> -->
+    
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <meta name="twitter:card" content="player" />
+    <meta name="twitter:title" content="SPARK: A Toolbox for Safe Humanoids" />
+    <meta name="twitter:description" content="Safeguarding humanoid research and development." />
+    <meta name="twitter:url" content="https://intelligent-control-lab.github.io/spark/" />
+    <meta name="twitter:image" content="https://intelligent-control-lab.github.io/spark/static/images/preview.jpg" />
+    <meta name="twitter:player" content="https://www.youtube.com/embed/vIzeQ31YbCM" />
+    <meta name="twitter:player:width" content="640" />
+    <meta name="twitter:player:height" content="360" />
+
+    <style>
+      .video-container {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: none;
+      }
+    
+      .video-container iframe {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: none;
+        border: 1px
+        solid #bbb;
+        border-radius: 10px;
+        width: 100%;
+      }
+
+      .image-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* Two columns */
+        gap: 20px; /* Space between rows and columns */
+        justify-items: center; /* Center the items horizontally */
+        align-items: center; /* Center the items vertically */
+      }
+      
+      .image-grid img {
+          max-width: 100%;
+          height: auto; /* Maintain aspect ratio */
+          border-radius: 10px; /* Optional: Add rounded corners */
+      }
+      
+    </style>
+
+  </head>
+  <body>
+
+    <section class="hero">
+      <div class="hero-body">
+        <div class="container">
+          <div class="columns is-centered">
+            <div class="column has-text-centered">
+              <h1 class="title is-1 publication-title">SPARK: A Toolbox for Safe
+                Humanoid <br />Autonomy and Teleoperation</h1>
+              <div class="is-size-5 publication-authors">
+                <span class="author-block">
+                  <a href="https://yifansun98.github.io">Yifan
+                    Sun</a><sup>1</sup>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <a href="https://ruichen.pub/">Rui
+                    Chen</a><sup>1</sup>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <a href="mailto:sirkhooy@andrew.cmu.edu">Kai S.
+                    Yun</a><sup>1</sup>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <a href="mailto:yikuanf@andrew.cmu.edu/">Yikuan
+                    Fang</a><sup>1</sup>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <a href="mailto:sebinj@andrew.cmu.edu">Sebin
+                    Jung</a><sup>1</sup>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <a href="mailto:weiyezha@andrew.cmu.edu">Weiye
+                    Zhao</a><sup>1</sup>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <a href="https://www.cs.cmu.edu/~cliu6/">Changliu
+                    Liu</a><sup>1</sup>
+                  <br /><sup>1</sup>Carnegie Mellon University
+                  <!-- <span class="brmod">CoRL 2021</span> -->
+                </span>
+              </div>
+
+              <div class="column has-text-centered">
+
+                <div class="publication-links">
+                  
+                  <!-- PDF Link. -->
+                  <!-- <span class="link-block">
+                    <a
+                      class="external-link button is-normal is-rounded is-dark" disabled>
+                      <span class="icon">
+                        <i class="fas fa-file-pdf" aria-hidden="true"></i>
+                      </span>
+                      <span>Full Paper (coming soon)</span>
+                    </a>
+                  </span> -->
+
+                  <!-- arXiv Link. -->
+                  <span class="link-block">
+                    <a href="./resources/spark.pdf"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="ai ai-arxiv"></i>
+                      </span>
+                      <span>Short Paper</span>
+                    </a>
+                  </span>
+
+                  <!-- Video Link. -->
+                  <span class="link-block">
+                    <a href="https://www.youtube.com/watch?v=vIzeQ31YbCM"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fab fa-youtube" aria-hidden="true"></i>
+                      </span>
+                      <span>Video</span>
+                    </a>
+                  </span>
+
+                  <!-- Poster Link. -->
+                  <!-- <span class="link-block">
+                    <a href=""
+                       class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="far fa-file"></i>
+                      </span>
+                      <span>Poster</span>
+                    </a>
+                  </span> -->
+
+                  <!-- twitter Link. -->
+                  <!-- <span class="link-block">
+                    <a
+                      href="https://twitter.com/pathak2206/status/1706696237703901439?ref_src=twsrc%5Etfw%7Ctwcamp%5Etweetembed%7Ctwterm%5E1706696237703901439%7Ctwgr%5E15e02108dbb696247a490e6499f2b18191e73a85%7Ctwcon%5Es1_c10&amp;ref_url=https%3A%2F%2Fpublish.twitter.com%2F%3Fquery%3Dhttps3A2F2Ftwitter.com2Fpathak22062Fstatus2F1706696237703901439widget%3DTweet"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fab fa-twitter" aria-hidden="true"></i>
+                      </span>
+                      <span>Summary</span>
+                    </a>
+                  </span> -->
+
+                  <!-- code Link. -->
+                  <!-- <span class="link-block">
+                    <a 
+                      class="external-link button is-normal is-rounded is-dark"
+                      target="_blank"
+                      disabled>
+                      <span class="icon">
+                        <i class="fab fa-github" aria-hidden="true"></i>
+                      </span>
+                      <span>Code (coming soon)</span>
+                    </a>
+                  </span> -->
+
+                  <!-- demo Link. -->
+                  <!-- <span class="link-block">
+                    <a href="#demo"
+                      class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="fa-solid fa-tower-broadcast"
+                          aria-hidden="true"></i>
+                      </span>
+                      <span>Live Demo CoRL 2023</span>
+                    </a>
+                  </span> -->
+
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <!-- Paper video. -->
+        <div id="method_video" class="columns is-centered has-text-centered">
+          <div class="column is-two-thirds">
+            <div class="video-container">
+              <iframe
+                src="https://www.youtube.com/embed/vIzeQ31YbCM"
+                title="YouTube video player"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen></iframe>
+            </div>
+          </div>
+        </div>
+        <!--/ Paper video. -->
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <!-- Abstract. -->
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-two-thirds">
+            <h2 class="title is-2">Abstract</h2>
+            <div class="content has-text-justified">
+              <p>
+                This paper presents the Safe Protective and Assistive Robot Kit
+                (SPARK), a comprehensive toolbox designed to ensure safety in
+                humanoid autonomy and teleoperation.
+                Humanoid robots have gained significant popularity due to their
+                versatility in interacting with complex environments.
+                It is critical to ensure that no harm is caused during those
+                interactions since unsafe behaviors can pose serious risks to
+                the environment and human safety, considering humanoids'
+                physical capabilities.
+                Therefore, robust safety measures are essential in general
+                humanoid robotics research and deployment.
+                The inherently complex physical structures of humanoid robots
+                further complicate the design of task-specific safety solutions.
+                To alleviate this challenge, we introduce SPARK, a modular
+                toolbox that integrates state-of-the-art safe control algorithms
+                such as
+                Safe Set Algorithm (SSA) into a generic robot control framework.
+                SPARK enables users to configure safety behaviors across
+                multiple dimensions, such as defining safety criteria and
+                sensitivity levels, allowing for optimized trade-offs between
+                safety and performance.
+                The toolbox is natively compatible with the Unitree G1 humanoid
+                robot, utilizing Apple Vision Pro (AVP) for perception, while
+                also offering interfaces for seamless customization with
+                alternative hardware setups.
+                By integrating SPARK as a fail-safe mechanism, users can
+                significantly improve the safety of their existing humanoid
+                systems.
+              </p>
+            </div>
+
+            <video autoplay loop muted playsinline
+              src="./resources/front_video.mp4"
+              style="border: 0px solid #bbb; border-radius: 1px; width: 100%;">
+            </video>
+
+            <h2 class="title is-6">Humanoid tasks safeguarded by SPARK. Nominal
+              actions are perturbed (SSA on) when necessary to ensure
+              safety.</h2>
+
+          </div>
+        </div>
+      </div>
+      <!--/ Abstract. -->
+
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-full-width">
+            
+            <!-- actual content -->
+
+            <h2 class="title is-2" style="text-align: center;">
+              Static Reference Tracking with Safe Control
+            </h2>
+            <tr>
+              <td>
+
+                <div class="image-grid">
+                  <video autoplay loop muted playsinline
+                    src="./resources/examples/head.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video>
+                  <video autoplay loop muted playsinline
+                    src="./resources/examples/no_cloth_static_arm.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video>
+                  <video autoplay loop muted playsinline
+                    src="./resources/examples/elbow_back.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video>
+                  <video autoplay loop muted playsinline
+                    src="./resources/examples/wrist_side.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video>
+                </div>
+
+              </td>
+            </tr>
+            
+            <!--  -->
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-full-width">
+            
+            <!-- actual content -->
+
+            <h2 class="title is-2" style="text-align: center;">
+              Dynamic Reference Tracking with Safe Control
+            </h2>
+            <tr>
+              <td>
+
+                <div class="image-grid">
+                  <!-- <video autoplay loop muted playsinline
+                    src="./resources/examples/dynamic-2.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video> -->
+                  <video autoplay loop muted playsinline
+                    src="./resources/examples/dynamic-3.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video>
+                  <video autoplay loop muted playsinline
+                    src="./resources/examples/dynamic-4.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video>
+                  <!-- <video autoplay loop muted playsinline
+                    src="./resources/examples/dynamic-5.mp4"
+                    style="border: 1px solid #bbb; border-radius: 10px; width: 100%;"></video> -->
+                </div>
+
+              </td>
+            </tr>
+            
+            <!--  -->
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-full-width">
+            
+            <!-- actual content -->
+
+            <h2 class="title is-2" style="text-align: center;">
+              Safe Humanoid Autonomy and Teleoperation Framework
+            </h2>
+            <br>
+            <center>
+              <img src="./resources/Spark System.png" alt="Overview" style="width:60%"/>
+            </center>
+
+            <!-- <tr>
+              <td>
+                  <img src="./resources/Spark System.png" alt="Overview" />
+              </td>
+            </tr> -->
+            
+            <!--  -->
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <div class="is-vcentered interpolation-panel">
+            <h2 class="title is-2" style="text-align: center;">Related Work</h2>
+            <div class="content is-centered has-text-centered">
+              This work is part of our research on provably safe control.
+              Please explore our other contributions below.
+            </div>
+            <div class="container">
+              <div class="columns is-vcentered">
+                <!-- Image Column -->
+                <div class="column is-4">
+                  <figure class="image">
+                    <img src="./resources/kai2025sia.png" alt="RMA Image">
+                  </figure>
+                </div>
+
+                <!-- Text Column -->
+                <div class="column is-8">
+                  <h2 class="title is-4"> Safe Control of Quadruped in Varying
+                    Dynamics via Safety Index Adaptation</h2>
+                  <p>
+                    Kai S. Yun, Rui Chen, Chase Dunaway, John M. Dolan, Changliu
+                    Liu<br />
+                    Submitted to ICRA 2025
+                  </p>
+                  <p>
+                    <a href="https://arxiv.org/pdf/2409.09882"
+                      class="button is-link">PDF</a>
+                    <!--                <a href="https://www.youtube.com/watch?v=nBy1piJrq1A" class="button is-link">Video</a>-->
+                    <!--                <a href="https://ashish-kmr.github.io/rma-legged-robots/" class="button is-link">Project Page</a>-->
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- <section class="section" id="BibTeX">
+      <div class="container content">
+        <h2 class="titile">BibTeX</h2>
+        <pre>
+          <code>
+            ??
+          </code>
+        </pre>
+      </div>
+    </section> -->
+
+    <footer class="footer">
+      <div class="container">
+        <div class="content has-text-centered">
+
+          <!-- <a href="./resources/spark.pdf" class="large-font bottom_buttons">
+            <i class="fas fa-file-pdf"></i>
+          </a> -->
+
+          <!-- <a class="large-font bottom_buttons" disabled>
+            <i class="fab fa-github"></i>
+          </a> -->
+
+          <br />
+
+          <p>Page template borrowed from <a
+              href="https://worldsheet.github.io/"><span
+                class="dnerf">Worldsheet</span></a> and <a
+              href="https://nerfies.github.io/"><span
+                class="dnerf">Nerfies</span></a>.</p>
+        </div>
+      </div>
+    </footer>
+
+  </body>
+</html>
