@@ -118,7 +118,7 @@ def compute_pairwise_info_parallel(frame_list_1, velocity_list_1, frame_list_2, 
             norm[i, j] = dist[i, j] / D
             curv[i, j] = (1 / D) - np.outer(dist[i, j], dist[i, j].T) / D**3
     
-    return dist, vel, norm, curv
+    return -dist, vel, norm, curv
 
 def compute_pairwise_dist(frame_list_1: List[np.ndarray], geom_list_1: List[Geometry],
                           frame_list_2: List[np.ndarray], geom_list_2: List[Geometry]):
