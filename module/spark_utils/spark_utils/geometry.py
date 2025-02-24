@@ -51,6 +51,11 @@ class Geometry:
         """Return geometry attributes as a dict."""
         return self.attributes
 
+class Volume():
+    def __init__(self, frame, geometry, velocity=np.zeros(6)):
+        self.frame = frame
+        self.velocity = velocity
+        self.geometry = geometry
 
 @njit
 def compute_distances_spheres(frame_list_1, radii_1, frame_list_2, radii_2):
@@ -78,6 +83,42 @@ def compute_distances_spheres(frame_list_1, radii_1, frame_list_2, radii_2):
 
     return dist
 
+@njit
+def compute_pairwise_info_parallel(frame_list_1, velocity_list_1, frame_list_2, velocity_list_2):
+    """
+    Compute pairwise information between two sets of frames.
+    
+    Args:
+        frame_list_1 (np.ndarray): [N1, 4, 4] Transforms for frame in list 1.
+        velocity_list_1 (np.ndarray): [N1, 6] Velocities for frames in list 1.
+        frame_list_2 (np.ndarray): [N2, 4, 4] Transforms for frame in list 2.
+        velocity_list_2 (np.ndarray): [N1, 6] Velocities for frames in list 2.
+    
+    Returns:
+        dist_raw (np.ndarray): Pairwise distances [N1, N2].
+        vel (np.ndarray): Pairwise velocities [N1, N2, 3].
+        norm (np.ndarray): Pairwise normals [N1, N2, 3].
+        curv (np.ndarray): Pairwise curvatures [N1, N2].
+    """
+    N1 = frame_list_1.shape[0]
+    N2 = frame_list_2.shape[0]
+    dist = np.zeros((N1, N2, 3))
+    vel = np.zeros((N1, N2, 3))
+    norm = np.zeros((N1, N2, 3))
+    curv = np.zeros((N1, N2, 3, 3))
+    for i in range(N1):
+        for j in range(N2):
+            pos1 = frame_list_1[i, :3, 3]
+            pos2 = frame_list_2[j, :3, 3]
+            dist[i, j] = pos2 - pos1
+            D = np.linalg.norm(dist[i, j])
+            if D == 0:
+                continue
+            vel[i, j] =  velocity_list_1[i, :3] - velocity_list_2[j, :3]
+            norm[i, j] = dist[i, j] / D
+            curv[i, j] = (1 / D) - np.outer(dist[i, j], dist[i, j].T) / D**3
+    
+    return dist, vel, norm, curv
 
 def compute_pairwise_dist(frame_list_1: List[np.ndarray], geom_list_1: List[Geometry],
                           frame_list_2: List[np.ndarray], geom_list_2: List[Geometry]):

@@ -20,8 +20,8 @@ class PotentialFieldMethod(ValueBasedSafeAlgorithm):
             trans_world2base          = task_info["robot_base_frame"]
             
             # compute all robot frames
-            frames = self.robot_kinematics.forward_kinematics(self.robot_cfg.decompose_state_to_dof(x))
-            trans_world2base = self.robot_kinematics.update_base_frame(trans_world2base, self.robot_cfg.decompose_state_to_dof(x))
+            frames = self.robot_kinematics.forward_kinematics(self.robot_cfg.decompose_state_to_dof_pos(x))
+            trans_world2base = self.robot_kinematics.update_base_frame(trans_world2base, self.robot_cfg.decompose_state_to_dof_pos(x))
 
             return trans_world2base @ frames[frame_id, :, :]
         
@@ -61,7 +61,7 @@ class PotentialFieldMethod(ValueBasedSafeAlgorithm):
             assert safe_control_args["lambda"].shape == (self.safety_index.num_constraint,), \
                 f"lambda shape mismatch: got {safe_control_args['lambda'].shape} != ({self.safety_index.num_constraint},)"
             assert (safe_control_args["lambda"] > 0).all(), "lambda must be positive"
-        trans_world2base = self.robot_kinematics.update_base_frame(trans_world2base, self.robot_cfg.decompose_state_to_dof(x))
+        trans_world2base = self.robot_kinematics.update_base_frame(trans_world2base, self.robot_cfg.decompose_state_to_dof_pos(x))
 
         
         phi_safe, trigger_safe = self.trigger_PFM(x, task_info)
@@ -76,7 +76,7 @@ class PotentialFieldMethod(ValueBasedSafeAlgorithm):
             # Map the flat index back to row and column indices in the original array 
             self.min_row_col_env = tuple(masked_indices_phi[min_index_flat_env])
 
-            frames = self.robot_kinematics.forward_kinematics(self.robot_cfg.decompose_state_to_dof(x))
+            frames = self.robot_kinematics.forward_kinematics(self.robot_cfg.decompose_state_to_dof_pos(x))
             robot_frame_closest = frames[self.min_row_col_env[0]]
             phi_cartesian_closest = self.safety_index.phi_cartesian(robot_frame_closest, task_info,trans_world2base)
             grad_phi_cartesian_closest = self.safety_index.grad_phi_cartesian(robot_frame_closest, task_info,trans_world2base)

@@ -31,10 +31,12 @@ class G1BasicKinematics(RobotKinematics):
         
         print(self.reduced_robot.model.nq)
 
+        self.frame_dict = {}
         for i in range(self.reduced_robot.model.nframes):
             frame = self.reduced_robot.model.frames[i]
             frame_id = self.reduced_robot.model.getFrameId(frame.name)
-            # print(f"Frame ID: {frame_id}, Name: {frame.name}")
+            self.frame_dict[frame.name] = frame_id 
+            print(f"Frame {frame.name} has ID {frame_id}")
         
         # Creating Casadi models and data for symbolic computing
         self.cmodel = cpin.Model(self.reduced_robot.model)
@@ -276,9 +278,18 @@ class G1BasicKinematics(RobotKinematics):
 
             return dof, info
 
-    def compute_frame_jacobian(self, q, frame_id):
-        frame_jacobian = pin.computeFrameJacobian(self.reduced_robot.model, self.reduced_robot.data, q, frame_id)
+    def compute_frame_jacobian(self, dof, frame_id):
+        frame_jacobian = pin.computeFrameJacobian(self.reduced_robot.model, self.reduced_robot.data, dof, frame_id)
         return frame_jacobian
+    
+    def compute_frame_jacobian_dot(self, dof, ddof, frame_id, eps=1e-4):
+        dof_forward = dof + ddof * eps
+        dof_backward = dof - ddof * eps
+        jacobian_forward = self.compute_frame_jacobian(dof_forward, frame_id)
+        jacobian_backward = self.compute_frame_jacobian(dof_backward, frame_id)
+        
+        jacobian_dot = (jacobian_forward - jacobian_backward) / (2 * eps)
+        return jacobian_dot
 
 if __name__ == "__main__":
     

@@ -72,7 +72,7 @@ class G1BenchmarkPipeline(BasePipeline):
             
             # post physics step (e.g., rendering, status publishing)
             self.post_physics_step(agent_feedback, task_info, action_info)
-        
+            
         # end of benchmark
         
         print("Simulation ended")
@@ -223,7 +223,7 @@ class G1BenchmarkPipeline(BasePipeline):
         
         # compute transformations of robot collision volumes
         x = self.agent_feedback["state"]
-        dof_pos = self.robot_cfg.decompose_state_to_dof(x)
+        dof_pos = self.robot_cfg.decompose_state_to_dof_pos(x)
         robot_frame = self.robot_kinematics.forward_kinematics(dof_pos)
         self.robot_frames_world = np.zeros_like(robot_frame)
         for i in range(len(robot_frame)):

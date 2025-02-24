@@ -5,7 +5,7 @@ import numpy as np
 
 kNotUsedJoint = 29
 
-class G1BasicConfig(RobotConfig):
+class G1BasicDynamic2Config(RobotConfig):
     
     # ---------------------------------------------------------------------------- #
     #                                      Kinematics                              #
@@ -106,10 +106,10 @@ class G1BasicConfig(RobotConfig):
         RightWristPitch    = 15
         RightWristYaw      = 16
         
-        # linear
-        LinearX = 17
-        LinearY = 18
-        RotYaw  = 19
+        # # linear
+        # LinearX = 17
+        # LinearY = 18
+        # RotYaw  = 19
 
     DefaultDoFVal = {
         DoFs.WaistYaw          : 0.0,
@@ -130,13 +130,8 @@ class G1BasicConfig(RobotConfig):
         DoFs.RightElbow        : 0.0,
         DoFs.RightWristRoll    : 0.0,
         DoFs.RightWristPitch   : 0.0,
-        DoFs.RightWristYaw     : 0.0,
-        
-        DoFs.LinearX           : 0.0,
-        DoFs.LinearY           : 0.0,
-        DoFs.RotYaw            : 0.0
+        DoFs.RightWristYaw     : 0.0
     }
-
     # ---------------------------------------------------------------------------- #
     #                                   Dynamics                                   #
     # ---------------------------------------------------------------------------- #
@@ -167,9 +162,9 @@ class G1BasicConfig(RobotConfig):
         vRightWristYaw      = 16
         
         # linear
-        vLinearX = 17
-        vLinearY = 18
-        vRotYaw  = 19
+        # vLinearX = 17
+        # vLinearY = 18
+        # vRotYaw  = 19
     
     ControlLimit = {
         Control.vWaistYaw          : 1.0,
@@ -189,18 +184,18 @@ class G1BasicConfig(RobotConfig):
         Control.vRightWristRoll    : 5.0,
         Control.vRightWristPitch   : 5.0,
         Control.vRightWristYaw     : 5.0,
-        Control.vLinearX           : 1.0,
-        Control.vLinearY           : 1.0,
-        Control.vRotYaw            : 1.0
+        # Control.vLinearX           : 1.0,
+        # Control.vLinearY           : 1.0,
+        # Control.vRotYaw            : 1.0
     }
 
     NormalControl = [
         Control.vWaistYaw,
         Control.vWaistRoll,
         Control.vWaistPitch,
-        Control.vLinearX,
-        Control.vLinearY,
-        Control.vRotYaw,
+        # Control.vLinearX,
+        # Control.vLinearY,
+        # Control.vRotYaw,
     ]
     
     WeakControl = [
@@ -231,13 +226,13 @@ class G1BasicConfig(RobotConfig):
 
     @property
     def num_state(self):
-        return len(self.DoFs)
+        return int(len(self.DoFs) * 2) # pos, vel for double integrator dynamics.
 
     def compose_state_from_dof(self, dof_pos, dof_vel):
         '''
             dof_pos: [num_dof,]
         '''
-        state = dof_pos.reshape(-1)
+        state = np.concatenate((dof_pos.reshape(-1), dof_vel.reshape(-1)), axis=0)
         return state
 
     def decompose_state_to_dof_pos(self, state):
@@ -245,7 +240,8 @@ class G1BasicConfig(RobotConfig):
             state: [num_state,]
             return: [num_dof,]
         '''
-        dof_pos = state.reshape(-1)
+        dof_pos = state.reshape(-1)[:len(self.DoFs)] # Take only the first half entries.
+        
         return dof_pos
     
     def decompose_state_to_dof_vel(self, state):
@@ -253,24 +249,31 @@ class G1BasicConfig(RobotConfig):
             state: [num_state,]
             return: [num_dof,]
         '''
-        # First order dynamic state does not have velocity
-        return None
+        dof_vel = state.reshape(-1)[len(self.DoFs):] # Take only the second half entries.
+        
+        return dof_vel
 
     def dynamics_f(self, state):
         '''
             state: [num_state, 1]
             return: [num_state, 1]
         '''
-        
-        return np.zeros((self.num_state, 1))
+        positions = state[:len(self.DoFs)]
+        velocities = state[len(self.DoFs):]
+  
+        f_x = np.zeros_like(state)
+        f_x[:len(self.DoFs)] = velocities
+        return f_x.reshape(-1,1)
 
     def dynamics_g(self, state):
         '''
             state: [num_state, 1]
             return: [num_state, num_control]
         '''
+        g_x = np.zeros((2 * len(self.DoFs), len(self.DoFs)))
+        g_x[len(self.DoFs):] = np.eye(len(self.DoFs))
 
-        return np.eye(self.num_state)
+        return g_x
 
     # ---------------------------------------------------------------------------- #
     #                                    MuJoCo                                    #
@@ -297,9 +300,9 @@ class G1BasicConfig(RobotConfig):
         RightWristPitch    = 30
         RightWristYaw      = 31
         
-        LinearX=  0
-        LinearY=  1
-        RotYaw =  2
+        # LinearX=  0
+        # LinearY=  1
+        # RotYaw =  2
 
     class MujocoMotors(IntEnum):
 
@@ -323,9 +326,9 @@ class G1BasicConfig(RobotConfig):
         RightWristPitch    = 15
         RightWristYaw      = 16
 
-        LinearX = 17
-        LinearY = 18
-        RotYaw  = 19
+        # LinearX = 17
+        # LinearY = 18
+        # RotYaw  = 19
 
     # ---------------------------------------------------------------------------- #
     #                                   Mappings                                   #
@@ -353,9 +356,9 @@ class G1BasicConfig(RobotConfig):
         MujocoDoFs.RightWristPitch    : DoFs.RightWristPitch,
         MujocoDoFs.RightWristYaw      : DoFs.RightWristYaw,
 
-        MujocoDoFs.LinearX: DoFs.LinearX,
-        MujocoDoFs.LinearY: DoFs.LinearY,
-        MujocoDoFs.RotYaw : DoFs.RotYaw
+        # MujocoDoFs.LinearX: DoFs.LinearX,
+        # MujocoDoFs.LinearY: DoFs.LinearY,
+        # MujocoDoFs.RotYaw : DoFs.RotYaw
     }
 
     # Mapping from DoFs to Mujoco DoFs
@@ -380,9 +383,9 @@ class G1BasicConfig(RobotConfig):
         DoFs.RightWristPitch   : MujocoDoFs.RightWristPitch,
         DoFs.RightWristYaw     : MujocoDoFs.RightWristYaw,
 
-        DoFs.LinearX: MujocoDoFs.LinearX,
-        DoFs.LinearY: MujocoDoFs.LinearY,
-        DoFs.RotYaw : MujocoDoFs.RotYaw
+        # DoFs.LinearX: MujocoDoFs.LinearX,
+        # DoFs.LinearY: MujocoDoFs.LinearY,
+        # DoFs.RotYaw : MujocoDoFs.RotYaw
     }
 
     # Mapping from Mujoco Motors to Control
@@ -407,9 +410,9 @@ class G1BasicConfig(RobotConfig):
         MujocoMotors.RightWristPitch    : Control.vRightWristPitch,
         MujocoMotors.RightWristYaw      : Control.vRightWristYaw,
 
-        MujocoMotors.LinearX: Control.vLinearX,
-        MujocoMotors.LinearY: Control.vLinearY,
-        MujocoMotors.RotYaw : Control.vRotYaw
+        # MujocoMotors.LinearX: Control.vLinearX,
+        # MujocoMotors.LinearY: Control.vLinearY,
+        # MujocoMotors.RotYaw : Control.vRotYaw
     }
 
     # Mapping from real motors to Control

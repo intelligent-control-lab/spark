@@ -139,7 +139,11 @@ class RobotConfig(ABC):
         pass
 
     @abstractmethod
-    def decompose_state_to_dof(self):
+    def decompose_state_to_dof_pos(self):
+        pass
+    
+    @abstractmethod
+    def decompose_state_to_dof_vel(self):
         pass
 
     @abstractmethod
