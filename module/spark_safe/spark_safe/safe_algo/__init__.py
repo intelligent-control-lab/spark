@@ -5,6 +5,7 @@ from .value_based.base.base_safety_index import BaseSafetyIndex
 from .value_based.base.value_based_safe_algo import ValueBasedSafeAlgorithm
 from .value_based.base.basic_collision_safety_index import BasicCollisionSafetyIndex
 from .value_based.base.my_safety_index import MySafetyIndex
+from .value_based.base.my_safety_index_NN import MySafetyIndexNN
 
 from .value_based.ssa.safe_set_algorithm import SafeSetAlgorithm
 from .value_based.cbf.control_barrier_function import ControlBarrierFunction
