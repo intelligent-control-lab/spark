@@ -9,12 +9,13 @@ class TaskObject3D():
         self.velocity = kwargs.get("velocity", 1.0)
         self.bound = kwargs.get("bound", np.zeros((3,2)))
         self.smooth_weight = kwargs.get("smooth_weight", 1.0)
-        self.last_direction = np.zeros(3)
+        self.direction = kwargs.get("direction", np.array([-1.0,0.0,0.0]))
+        self.last_direction = self.direction
         self.step_counter = 0
         self.keep_direction_step = kwargs.get("keep_direction_step", 1)
+        self.dt = kwargs.get("dt", 0.01)
     
-    def move(self, mode="Brownian"):
-        
+    def move(self, mode):
         if mode == "Brownian":
             if self.step_counter % self.keep_direction_step == 0:
                 direction = np.random.normal(loc=0.0, size=3)
@@ -22,20 +23,24 @@ class TaskObject3D():
             else:
                 direction = self.last_direction
             self.last_frame = self.frame.copy()
-            update_step = (1 - self.smooth_weight) * self.last_direction +  self.smooth_weight * direction
-            self.frame[:3,3] += update_step
-            
-            for dim in range(3):
-                if self.frame[dim,3] < self.bound[dim][0]:
-                    self.frame[dim,3] = self.last_frame[dim,3] - update_step[dim]
-                elif self.frame[dim,3] > self.bound[dim][1]:
-                    self.frame[dim,3] = self.last_frame[dim,3] - update_step[dim]
-            
-            self.last_direction = self.frame[:3,3] - self.last_frame[:3,3]
+            update_step = (1 - self.smooth_weight) * self.last_direction + self.smooth_weight * direction
+            self.frame[:3, 3] += update_step
 
+            self.last_direction = self.frame[:3, 3] - self.last_frame[:3, 3]
+
+        elif mode == "Velocity":
+            update_step = self.velocity * self.last_direction * self.dt
+            self.frame[:3, 3] += update_step
+
+        # Enforce bounds
+        for dim in range(3):
+            if self.frame[dim, 3] < self.bound[dim][0]:
+                self.frame[dim, 3] = self.bound[dim][0]
+            elif self.frame[dim, 3] > self.bound[dim][1]:
+                self.frame[dim, 3] = self.bound[dim][1]
+       
         self.step_counter += 1
-    
-    
+
 
 class G1BenchmarkTask(BaseTask):
     def __init__(self, robot_cfg, robot_kinematics, agent, **kwargs):
@@ -44,6 +49,17 @@ class G1BenchmarkTask(BaseTask):
         self.task_name = kwargs.get("task_name", "G1BenchmarkTask")
         self.max_episode_length = kwargs.get("max_episode_length", -1)
         self.num_obstacle_task = kwargs.get("num_obstacle", 3) # todo online update
+        self.mode = kwargs.get("mode", "Brownian") #kwargs.get("mode", "Brownian")
+        self.obstacle_init = kwargs.get("obstacle_init", np.array([0.2,0.0,1.0]))
+        self.obstacle_velocity = kwargs.get("obstacle_velocity", 0.001)
+        self.obstacle_direction = kwargs.get("obstacle_direction", np.array([-1.0,0.0,0.0]))
+        self.goal_left_init = kwargs.get("goal_left_init", np.array([0.25, 0.25, 0.1]))
+        self.goal_left_velocity = kwargs.get("goal_left_velocity", 0.001)
+        self.goal_left_direction = kwargs.get("goal_left_direction", np.array([1.0,0.0,0.0]))
+        self.goal_right_init = kwargs.get("goal_right_init", np.array([0.25, -0.25, 0.1]))
+        self.goal_right_velocity = kwargs.get("goal_right_velocity", 0.001)
+        self.goal_right_direction = kwargs.get("goal_right_direction", np.array([1.0, 0.0, 0.0]))
+        self.dt = kwargs.get("dt", 0.01)
         
         self.reset()
 
@@ -57,42 +73,51 @@ class G1BenchmarkTask(BaseTask):
         self.obstacle_task_geom = []
             
         for _ in range(self.num_obstacle_task):
-            obstacle = TaskObject3D(velocity=0.01, 
+            obstacle = TaskObject3D(velocity=self.obstacle_velocity, 
+                                    direction=self.obstacle_direction,
                                     keep_direction_step = 500,
                                     bound=np.array([[-0.3, 0.5], 
-                                                    [-0.3, 0.5], 
-                                                    [0.8, 1.0]]))
-            obstacle.frame[:3,3] = np.array([np.random.uniform(low, high) for low, high in obstacle.bound])
+                                                    [-1.0, 1.0], 
+                                                    [0.8, 1.0]]),
+                                    dt = self.dt)
+            if self.mode == 'Velocity':
+                obstacle.frame[:3,3] = self.obstacle_init # need to deal with multiple init later
+            else:
+                obstacle.frame[:3,3] = np.array([np.random.uniform(low, high) for low, high in obstacle.bound])
+
             self.obstacle_task.append(obstacle)
             self.obstacle_task_geom.append(Geometry(type="sphere", radius=0.05, color=VizColor.obstacle_task))
 
         # --------------------------------- init goal -------------------------------- #
-        self.goal_teleop = {}
-        self.goal_teleop["left"] = np.array([[1., 0., 0., 0.25],
-                                            [0., 1., 0., 0.25],
-                                            [0., 0., 1., 0.1],
-                                            [0., 0., 0., 1.]])
-        self.goal_teleop["right"] = np.array([[1., 0., 0., 0.25],
-                                            [0., 1., 0., -0.25],
-                                            [0., 0., 1., 0.1],
-                                            [0., 0., 0., 1.]])
         
-        self.robot_goal_left = TaskObject3D(velocity=0.001, 
+        self.robot_goal_left = TaskObject3D(velocity=self.goal_left_velocity, 
+                                            direction=self.goal_left_direction,
                                             keep_direction_step = 10,
                                             bound=np.array([[0.1, 0.4], 
                                                             [0.1, 0.4], 
                                                             [0.0, 0.2]]),
-                                            smooth_weight = 0.8)
-        self.robot_goal_left.frame[:3,3] = np.array([np.random.uniform(low, high) for low, high in self.robot_goal_left.bound])
+                                            smooth_weight = 0.8,
+                                            dt = self.dt)
         
-        self.robot_goal_right = TaskObject3D(velocity=0.001, 
+        
+        self.robot_goal_right = TaskObject3D(velocity=self.goal_right_velocity, 
+                                             direction=self.goal_right_direction,
                                              keep_direction_step = 10,
                                              bound=np.array([[0.1, 0.4], 
                                                              [-0.4, -0.1], 
                                                              [0.0, 0.2]]),
-                                             smooth_weight = 0.8)
-        self.robot_goal_right.frame[:3,3] = np.array([np.random.uniform(low, high) for low, high in self.robot_goal_right.bound])
-        
+                                             smooth_weight = 0.8,
+                                             dt = self.dt)
+        if self.mode == 'Velocity':
+            self.robot_goal_left.frame[:3,3] = self.goal_left_init
+            self.robot_goal_right.frame[:3,3] = self.goal_right_init
+        else:
+            self.robot_goal_left.frame[:3,3] = np.array([np.random.uniform(low, high) for low, high in self.robot_goal_left.bound])
+            self.robot_goal_right.frame[:3,3] = np.array([np.random.uniform(low, high) for low, high in self.robot_goal_right.bound])
+
+        self.goal_teleop = {}
+        self.goal_teleop["left"] = self.robot_goal_left.frame
+        self.goal_teleop["right"] = self.robot_goal_right.frame
         
         
         # --------------------------------- init info -------------------------------- #
@@ -105,12 +130,12 @@ class G1BenchmarkTask(BaseTask):
         self.info["robot_state"] = {}
 
     def update_robot_goal(self):
-        self.robot_goal_left.move()
-        self.robot_goal_right.move()
+        self.robot_goal_left.move(self.mode)
+        self.robot_goal_right.move(self.mode)
     
     def update_obstacle_task(self):
         for obstacle in self.obstacle_task:
-            obstacle.move()
+            obstacle.move(self.mode)
     
     def step(self, feedback):
         
@@ -136,9 +161,13 @@ class G1BenchmarkTask(BaseTask):
         
         self.info["obstacle_task"]["frames_world"]  = [obstacle.frame for obstacle in self.obstacle_task] if len(self.obstacle_task) > 0 else np.empty((0, 4, 4))
         self.info["obstacle_task"]["geom"]          = self.obstacle_task_geom
+        self.info["obstacle_task"]["velocity"]      = [obstacle.velocity * np.concatenate((obstacle.direction, np.zeros(3))) for obstacle in self.obstacle_task] if len(self.obstacle_task) > 0 else np.empty((0, 4, 4))
         self.info["obstacle_debug"]["frames_world"] = feedback.get("obstacle_debug_frame", np.empty((0, 4, 4)))
         self.info["obstacle_debug"]["geom"]         = feedback.get("obstacle_debug_geom", [])
+        self.info["obstacle_debug"]["velocity"]     = feedback.get("obstacle_debug_velocity", np.empty((1, 6)))
         self.info["obstacle"]["frames_world"]       = np.concatenate([self.info["obstacle_task"]["frames_world"], self.info["obstacle_debug"]["frames_world"]], axis=0)
+
+        self.info["obstacle"]["velocity"]           = np.concatenate([self.info["obstacle_task"]["velocity"], self.info["obstacle_debug"]["velocity"]], axis=0)
         self.info["obstacle"]["geom"]               = np.concatenate([self.info["obstacle_task"]["geom"], self.info["obstacle_debug"]["geom"]], axis=0)
         self.info["obstacle"]["num"]                = len(self.info["obstacle"]["frames_world"])
         

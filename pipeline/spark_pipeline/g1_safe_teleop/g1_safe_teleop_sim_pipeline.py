@@ -66,7 +66,7 @@ class G1SafeTeleopSimPipeline(BasePipeline):
         
         # compute transformations of robot collision volumes
         x = self.agent_feedback["state"]
-        dof_pos = self.robot_cfg.decompose_state_to_dof(x)
+        dof_pos = self.robot_cfg.decompose_state_to_dof_pos(x)
         robot_frames = self.robot_kinematics.forward_kinematics(dof_pos)
         self.robot_frames_world = np.zeros_like(robot_frames)
         for i in range(len(robot_frames)):

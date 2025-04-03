@@ -1,5 +1,5 @@
 from spark_robot import RobotKinematics
-from spark_utils import Geometry, compute_pairwise_dist
+from spark_utils import Geometry, Volume, compute_pairwise_dist, compute_pairwise_info_parallel
 import numpy as np
 
 from spark_safe.safe_algo.value_based.base.base_safety_index import BaseSafetyIndex
@@ -18,14 +18,14 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
         # process robot collision info
         self.collision_vol_frame_ids  = list(self.robot_cfg.CollisionVol.keys()) # frame ids, to index the frames computed by FK
         self.collision_vol_geom       = [self.robot_cfg.CollisionVol[fid] for fid in self.collision_vol_frame_ids] # collision volume info
-        self.num_collision_vol        = len(self.collision_vol_frame_ids)
+        self.num_robot_vol        = len(self.collision_vol_frame_ids)
         self.enable_self_collision    = kwargs["enable_self_collision"]
         self.env_collision_vol_ignore = [getattr(self.robot_cfg.Frames, name) for name in kwargs["env_collision_vol_ignore"] if hasattr(self.robot_cfg.Frames, name)] # str to frame id
         
-        self.num_constraint_self = self.num_collision_vol * (self.num_collision_vol - 1)  // 2
+        self.num_constraint_self = self.num_robot_vol * (self.num_robot_vol - 1)  // 2
         
         # create mask for self collision check
-        self.self_collision_mask = self.enable_self_collision * np.ones((self.num_collision_vol, self.num_collision_vol), dtype=bool)
+        self.self_collision_mask = self.enable_self_collision * np.ones((self.num_robot_vol, self.num_robot_vol), dtype=bool)
         self.self_collision_mask[np.tril_indices(self.self_collision_mask.shape[0], k=0)] = False
         for frame_i, frame_j in self.robot_cfg.AdjacentCollisionVolPairs:
             i = self.collision_vol_frame_ids.index(frame_i)
@@ -37,23 +37,23 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
             self.self_collision_mask[i, :] = False
             self.self_collision_mask[:, i] = False
             
-        self.min_dist_self = self.min_distance["self"] * np.ones((self.num_collision_vol, self.num_collision_vol))
+        self.min_dist_self = self.min_distance["self"] * np.ones((self.num_robot_vol, self.num_robot_vol))
     
         self.update_obstacle_info()
     
     def update_obstacle_info(self, task_info=None):
         
         if task_info is not None:
-            self.num_obstacles = task_info["obstacle"]["num"]
+            self.num_obstacle_vol = task_info["obstacle"]["num"]
         else:
-            self.num_obstacles = 0
+            self.num_obstacle_vol = 0
         
         # compute number of constraints
-        self.num_constraint_env  = self.num_collision_vol * self.num_obstacles
+        self.num_constraint_env  = self.num_robot_vol * self.num_obstacle_vol
         self.num_constraint      = self.num_constraint_env + self.num_constraint_self
         
         # create mask for environment collision check
-        self.env_collision_mask = np.ones((self.num_collision_vol, self.num_obstacles), dtype=bool)
+        self.env_collision_mask = np.ones((self.num_robot_vol, self.num_obstacle_vol), dtype=bool)
         for fid in self.env_collision_vol_ignore:
             i = self.collision_vol_frame_ids.index(fid)
             self.env_collision_mask[i, :] = False
@@ -65,7 +65,12 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
             self.phi_mask[-self.num_constraint_self:] = self.self_collision_mask[np.triu_indices(self.self_collision_mask.shape[0], k=1)]
 
         # min dist matrix
-        self.min_dist_env = self.min_distance["environment"] * np.ones((self.num_collision_vol, self.num_obstacles))
+        self.min_dist_env = self.min_distance["environment"] * np.ones((self.num_robot_vol, self.num_obstacle_vol))
+    
+        self.dmin = np.zeros(self.num_constraint)
+        self.dmin[:self.num_constraint_env] = self.min_distance["environment"]
+        if self.num_constraint_self > 0:
+            self.dmin[-self.num_constraint_self:] = self.min_distance["self"]
     
     def phi(self,
             x        : np.ndarray,
@@ -88,13 +93,13 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
         obstacle_vol_frames_world = task_info["obstacle"]["frames_world"]
         obstacle_vol_geom         = task_info["obstacle"]["geom"]
         # compute all robot frames
-        frames = self.robot_kinematics.forward_kinematics(self.robot_cfg.decompose_state_to_dof(x))
-        trans_world2base = self.robot_kinematics.update_base_frame(trans_world2base, self.robot_cfg.decompose_state_to_dof(x))
+        frames = self.robot_kinematics.forward_kinematics(self.robot_cfg.decompose_state_to_dof_pos(x))
+        trans_world2base = self.robot_kinematics.update_base_frame(trans_world2base, self.robot_cfg.decompose_state_to_dof_pos(x))
         # get collision vol frames
         collision_vol_frames_base = np.stack([frames[fid] for fid in self.collision_vol_frame_ids], axis=0) # [num_collision_vol, 4, 4]
         # transform to world frame
         collision_vol_frames_world = np.zeros_like(collision_vol_frames_base)
-        for i in range(self.num_collision_vol):
+        for i in range(self.num_robot_vol):
             collision_vol_frames_world[i, :, :] = trans_world2base @ collision_vol_frames_base[i, :, :]
         
         # compute pairwise distances between collision volumes and obstacles
@@ -176,7 +181,7 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
             frame_list_2 = obstacle_vol_frames_world,
             geom_list_2  = obstacle_vol_geom
         )
-        self.min_dist_env = self.min_distance["environment"] * np.ones(self.num_obstacles)
+        self.min_dist_env = self.min_distance["environment"] * np.ones(self.num_obstacle_vol)
         # compute phi 
         phi_cartesian = (self.min_dist_env - dist_env).flatten()
 
@@ -196,7 +201,7 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
                 grad (np.ndarray): [num_constraint, num_state] gradient of safety index function w.r.t. x.
         '''
         
-        grad = np.zeros((self.num_obstacles, 3))
+        grad = np.zeros((self.num_obstacle_vol, 3))
         for i in range(3):
             x_forward = robot_frame_closest.copy()
             x_forward[i,3] += eps
@@ -215,10 +220,10 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
             
         assert vec.shape[0] == self.num_constraint, f"vec shape {vec.shape} does not match num_constraint {self.num_constraint}"
         
-        mat_env = vec[:self.num_constraint_env].reshape(self.num_collision_vol, self.num_obstacles)
-        mat_self = np.zeros((self.num_collision_vol, self.num_collision_vol))
+        mat_env = vec[:self.num_constraint_env].reshape(self.num_robot_vol, self.num_obstacle_vol)
+        mat_self = np.zeros((self.num_robot_vol, self.num_robot_vol))
         if self.num_constraint_self > 0:
-            mat_self[np.triu_indices(self.num_collision_vol, k=1)] = vec[-self.num_constraint_self:]
+            mat_self[np.triu_indices(self.num_robot_vol, k=1)] = vec[-self.num_constraint_self:]
         
         ret = {
             f"{name}_mat_env": mat_env,
@@ -227,3 +232,82 @@ class BasicCollisionSafetyIndex(BaseSafetyIndex):
         
         return ret
         
+    def get_vol_info(self, x, task_info):
+        assert "obstacle" in task_info, "obstacle not found in task_info"
+        assert "frames_world" in task_info["obstacle"], "frames_world not found in task_info['obstacle']"
+        assert "geom" in task_info["obstacle"], "geom not found in task_info['obstacle']"
+        
+        self.update_obstacle_info(task_info)
+        
+        trans_world2base          = task_info["robot_base_frame"]
+        obstacle_vol_frames       = task_info["obstacle"]["frames_world"]
+        obstacle_vol_geom         = task_info["obstacle"]["geom"]
+        obstacle_vol_velocity     = task_info["obstacle"]["velocity"]
+        
+        # compute all robot frames
+        robot_frames = self.robot_kinematics.forward_kinematics(self.robot_cfg.decompose_state_to_dof_pos(x))
+        trans_world2base = self.robot_kinematics.update_base_frame(trans_world2base, self.robot_cfg.decompose_state_to_dof_pos(x))
+        # get collision vol frames
+        robot_vol_frames = np.stack([robot_frames[fid] for fid in self.collision_vol_frame_ids], axis=0) # [num_robot_vol, 4, 4]
+        # transform to world frame
+        
+        robot_collision_vol = []
+        obstacle_collision_vol = []
+        q = self.robot_cfg.decompose_state_to_dof_pos(x)
+        dq = self.robot_cfg.decompose_state_to_dof_vel(x)
+        
+        for i in range(self.num_robot_vol):
+            frame_id = self.robot_kinematics.frame_dict[self.collision_vol_frame_ids[i].name]
+            jacobian = self.robot_kinematics.compute_frame_jacobian(q, frame_id)[:3, :]
+            robot_collision_vol.append(Volume(
+                frame = trans_world2base @ robot_vol_frames[i, :, :],
+                geometry  = self.collision_vol_geom[i],
+                velocity = jacobian @ dq
+            ))
+        for i in range(self.num_obstacle_vol):
+            obstacle_collision_vol.append(Volume(
+                frame = obstacle_vol_frames[i],
+                geometry  = obstacle_vol_geom[i],
+                velocity = obstacle_vol_velocity[i]
+            ))
+        
+        return robot_collision_vol, obstacle_collision_vol
+
+    def compute_pairwise_info(self, volume_list_1, volume_list_2):
+        """
+        Compute pairwise information between two sets of volumes.
+        
+        Args:
+            volume_list_1 (List[Volume]): List of volumes in set 1.
+            volume_list_2 (List[Volume]): List of volumes in set 2.
+        
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Tuple containing the distances, velocities, normals, and curvatures.
+        """
+        return compute_pairwise_info_parallel(
+            np.array([volume.frame for volume in volume_list_1]),
+            np.array([volume.velocity for volume in volume_list_1]),
+            np.array([volume.frame for volume in volume_list_2]),
+            np.array([volume.velocity for volume in volume_list_2])
+        )
+
+    def compute_pairwise_vol_info(self, robot_collision_vol, obstacle_collision_vol):
+        d_env, v_env, normal_env, curv_env = self.compute_pairwise_info(robot_collision_vol, obstacle_collision_vol)
+        d_self, v_self, normal_self, curv_self = self.compute_pairwise_info(robot_collision_vol, robot_collision_vol)
+        
+        d = np.zeros((self.num_constraint, 3))
+        v = np.zeros((self.num_constraint, 3))
+        normal = np.zeros((self.num_constraint, 3))
+        curv = np.zeros((self.num_constraint, 3, 3))
+        
+        d[:self.num_constraint_env] = d_env.reshape(-1, 3)  
+        v[:self.num_constraint_env] = v_env.reshape(-1, 3)  
+        normal[:self.num_constraint_env] = normal_env.reshape(-1, 3)  
+        curv[:self.num_constraint_env] = curv_env.reshape(-1, 3, 3)
+        if self.num_constraint_self > 0:
+            d[-self.num_constraint_self:] = d_self[np.triu_indices(d_self.shape[0], k=1)]
+            v[-self.num_constraint_self:] = v_self[np.triu_indices(v_self.shape[0], k=1)]
+            normal[-self.num_constraint_self:] = normal_self[np.triu_indices(normal_self.shape[0], k=1)]
+            curv[-self.num_constraint_self:] = curv_self[np.triu_indices(curv_self.shape[0], k=1)]
+        
+        return d, v, normal, curv

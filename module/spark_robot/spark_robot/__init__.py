@@ -8,3 +8,4 @@ from .base.base_robot_kinematics import RobotKinematics
 from .g1.g1_basic_config import G1BasicConfig
 from .g1.g1_right_arm_config import G1RightArmConfig
 from .g1.g1_basic_kinematics import G1BasicKinematics
+from .g1.g1_basic_dynamic_2_config import G1BasicDynamic2Config

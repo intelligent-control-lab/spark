@@ -3,3 +3,13 @@ log/
 **/*.egg-info/
 .vscode
 **/MUJOCO_LOG.TXT
+module/spark_task/spark_task/task/.DS_Store
+module/spark_task/spark_task/.DS_Store
+module/spark_task/.DS_Store
+module/spark_safe/spark_safe/safe_algo/value_based/.DS_Store
+module/.DS_Store
+.DS_Store
+pipeline/.DS_Store
+pipeline/spark_pipeline/.DS_Store
+pipeline/spark_pipeline/g1_benchmark/.DS_Store
+wrapper/.DS_Store

@@ -262,8 +262,12 @@ class MujocoAgent(SimulationAgent):
         self.data.xfrc_applied[:, :] = 0       # Clear external forces
 
     def reset(self) -> None:
-        # todo
-        pass
+        super().reset()
+        
+        default_dof_pos = np.array([self.robot_cfg.DefaultDoFVal[dof] for dof in self.robot_cfg.DoFs])
+        
+        self.set_dof_pos(default_dof_pos)
+        self.mujoco_step() # needed to update qpos
     
     def mujoco_step(self):
         mujoco.mj_step(self.model, self.data)
@@ -289,15 +293,13 @@ class MujocoAgent(SimulationAgent):
 
         # invoke modeled dynamics
         x = self.compose_state()
-        x_dot = self.robot_cfg.dynamics_xdot(x, command)
         
+        x_dot = self.robot_cfg.dynamics_xdot(x, command)
         # integration
         x += x_dot * self.dt
-        
-        # get command
-        self.dof_pos_cmd = self.robot_cfg.decompose_state_to_dof(x)
-        self.dof_vel_cmd = self.robot_cfg.decompose_state_to_dof(x_dot)
-        
+
+        self.dof_pos_cmd = self.robot_cfg.decompose_state_to_dof_pos(x)
+        self.dof_vel_cmd = self.robot_cfg.decompose_state_to_dof_vel(x)
         # set state by overriding dof_pos
         self.set_dof_pos(self.dof_pos_cmd)
     

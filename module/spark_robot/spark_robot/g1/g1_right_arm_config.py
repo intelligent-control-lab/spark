@@ -170,7 +170,7 @@ class G1RightArmConfig(RobotConfig):
         state = dof_pos.reshape(-1)
         return state
 
-    def decompose_state_to_dof(self, state):
+    def decompose_state_to_dof_pos(self, state):
         '''
             state: [num_state,]
             return: [num_dof,]

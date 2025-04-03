@@ -7,6 +7,6 @@ class G1BasicMujocoAgent(MujocoAgent):
 
     def compose_state(self):
         
-        x = self.robot_cfg.compose_state_from_dof(self.dof_pos_cmd)
+        x = self.robot_cfg.compose_state_from_dof(self.dof_pos_cmd, self.dof_vel_cmd)
 
         return x

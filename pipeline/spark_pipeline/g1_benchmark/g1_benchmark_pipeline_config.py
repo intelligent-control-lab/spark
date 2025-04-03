@@ -20,6 +20,7 @@ class G1BenchmarkPipelineConfig(BasePipelineConfig):
             task_name           = "G1BenchmarkTask" # e.g., will appear as ros node name
             enable_ros          = False
             max_episode_length  = 200
+            dt = 0.01
 
         class agent( BasePipelineConfig.env.agent ):
             class_name = "G1BasicMujocoAgent"
@@ -45,8 +46,8 @@ class G1BenchmarkPipelineConfig(BasePipelineConfig):
             class safety_index( BasePipelineConfig.algo.safe_controller.safety_index ):
                 class_name = "BasicCollisionSafetyIndex"
                 min_distance = {
-                    "environment": 0.05,
-                    "self": 0.05
+                    "environment": 0.1,
+                    "self": 0.01
                 }
                 
                 # todo move to robot config
@@ -63,7 +64,7 @@ class G1BenchmarkPipelineConfig(BasePipelineConfig):
             class safe_algo( BasePipelineConfig.algo.safe_controller.safe_algo ):
                 class_name = "SafeSetAlgorithm"
                 eta = 1.0
-                safety_buffer = 0.1 # positive to allow hold state
+                safety_buffer = 0.0 # positive to allow hold state
                 slack_weight = 1e3
                 control_weight = [
                     1.0, 1.0, 1.0, # waist

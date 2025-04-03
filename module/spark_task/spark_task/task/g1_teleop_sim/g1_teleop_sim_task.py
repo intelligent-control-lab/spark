@@ -90,17 +90,30 @@ class G1TeleopSimTask(BaseTask):
         self.info["goal_teleop"]["left"]            = self.goal_teleop["left"]
         self.info["goal_teleop"]["right"]           = self.goal_teleop["right"]
         
+        # # get obstacles from task and debug
+        # self.info["obstacle_task"]["frames_world"]  = self.obstacle_task_frames_world
+        # self.info["obstacle_task"]["geom"]          = self.obstacle_task_geom
+        # self.info["obstacle_task"]["velocity"]      = [obstacle.velocity * np.concatenate((obstacle.direction, np.zeros(3))) for obstacle in self.obstacle_task] if len(self.obstacle_task) > 0 else np.empty((0, 4, 4))
+        # self.info["obstacle_debug"]["frames_world"] = feedback.get("obstacle_debug_frame", [])
+        # self.info["obstacle_debug"]["geom"]         = feedback.get("obstacle_debug_geom", [])
+        
+        # # merge obstacles from task and debug
+        # self.info["obstacle"]["frames_world"]       = np.concatenate([self.info["obstacle_task"]["frames_world"], self.info["obstacle_debug"]["frames_world"]], axis=0)
+        # self.info["obstacle"]["geom"]               = np.concatenate([self.info["obstacle_task"]["geom"], self.info["obstacle_debug"]["geom"]], axis=0)
+        # self.info["obstacle"]["num"]                = len(self.info["obstacle"]["frames_world"])
+        
         # get obstacles from task and debug
         self.info["obstacle_task"]["frames_world"]  = self.obstacle_task_frames_world
         self.info["obstacle_task"]["geom"]          = self.obstacle_task_geom
-        self.info["obstacle_debug"]["frames_world"] = feedback.get("obstacle_debug_frame", [])
+        self.info["obstacle_task"]["velocity"]      = [np.zeros(6) for obstacle in self.obstacle_task_frames_world] if len(self.obstacle_task_frames_world) > 0 else np.empty((1, 6))
+        self.info["obstacle_debug"]["frames_world"] = feedback.get("obstacle_debug_frame", np.empty((0, 4, 4)))
         self.info["obstacle_debug"]["geom"]         = feedback.get("obstacle_debug_geom", [])
-        
-        # merge obstacles from task and debug
+        self.info["obstacle_debug"]["velocity"]     = [np.zeros(6) for _ in range(len(self.info["obstacle_debug"]["frames_world"]))] if len(self.info["obstacle_debug"]["frames_world"]) > 0 else np.empty((1, 6))
         self.info["obstacle"]["frames_world"]       = np.concatenate([self.info["obstacle_task"]["frames_world"], self.info["obstacle_debug"]["frames_world"]], axis=0)
+        self.info["obstacle"]["velocity"]           = np.concatenate([self.info["obstacle_task"]["velocity"], self.info["obstacle_debug"]["velocity"]], axis=0)
         self.info["obstacle"]["geom"]               = np.concatenate([self.info["obstacle_task"]["geom"], self.info["obstacle_debug"]["geom"]], axis=0)
         self.info["obstacle"]["num"]                = len(self.info["obstacle"]["frames_world"])
-        
+
         # robot state
         self.info["robot_state"]["dof_pos_cmd"]     = feedback["dof_pos_cmd"]
         self.info["robot_state"]["dof_pos_fbk"]     = feedback["dof_pos_fbk"]

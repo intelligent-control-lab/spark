@@ -50,8 +50,8 @@ def class_to_dict(obj) -> dict:
     return result
 
 def update_class_attributes(obj, attrs: dict):
-    
     for key, value in attrs.items():
+        
         if not hasattr(obj, key):
             print(f'Attribute {key} not found in {obj}, adding to {obj}')
         setattr(obj, key, value)
