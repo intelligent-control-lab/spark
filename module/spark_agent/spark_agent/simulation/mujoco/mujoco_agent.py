@@ -1,112 +1,166 @@
 import numpy as np
+import mujoco
+from mujoco.glfw import glfw
 from spark_agent.simulation.simulation_agent import SimulationAgent
 from spark_robot import RobotConfig
 from spark_utils import Geometry, VizColor
-import mujoco
-import mujoco.viewer
-from mujoco.glfw import glfw
-import time
-import os
-from spark_robot import SPARK_ROBOT_RESOURCE_DIR
+
 
 class MujocoAgent(SimulationAgent):
+    """
+    A class for controlling a Mujoco-based simulation agent.
+    """
+
     def __init__(self, robot_cfg: RobotConfig, **kwargs) -> None:
+        """
+        Initializes the Mujoco agent with robot configuration and simulation parameters.
+
+        Args:
+            robot_cfg (RobotConfig): The configuration for the robot.
+            **kwargs: Additional keyword arguments such as simulation dynamics, model path, viewer settings, etc.
+        """
         super().__init__(robot_cfg)
 
-        self.model = mujoco.MjModel.from_xml_path(os.path.join(SPARK_ROBOT_RESOURCE_DIR, kwargs["mujoco_model"]))
-        self.data = mujoco.MjData(self.model)
-        mujoco.mj_forward(self.model, self.data)
-        self.viewer = mujoco.viewer.launch_passive(self.model, self.data, key_callback=self.key_callback)
-        self.viewer_setup()
-        self.renderer =  mujoco.Renderer(self.model)
-        self.dt = kwargs["dt"]
-        self.model.opt.timestep = self.dt
+    # ---------------------------------- Setup Helpers --------------------------------- #
 
-        # obstacle from simulation (e.g., keyboard controlled)
-        self.obstacle_debug = kwargs.get("obstacle_debug", dict(num_obstacle=0, manual_movement_step_size=0.1))
-        self.obstacle_debug_geom = []
-        self.num_obstacle_debug = self.obstacle_debug["num_obstacle"]
-        self.manual_step_size = self.obstacle_debug["manual_movement_step_size"]
-        self.obstacle_debug_frame = np.zeros((self.num_obstacle_debug, 4, 4))
-        if self.num_obstacle_debug > 0:
-            self.obstacle_debug_frame = np.stack([np.eye(4) for _ in range(self.num_obstacle_debug)], axis=0)
-        for frame in self.obstacle_debug_frame:
-            frame[:3, 3] = np.array([0.6, 0.0, 0.793]) + np.random.uniform(-0.2, 0.2, 3)
-            
-        self.obstacle_debug_geom = [Geometry(type="sphere", radius=0.05, color=VizColor.obstacle_debug) for _ in range(self.num_obstacle_debug)]
-        self.obstacle_debug_selected = 0
-        self.num_obstacle_debug_change_buf = 0
-            
+    def close_viewer(self):
+        """
+        Closes the Mujoco viewer if it is open.
+        """
+        if self.viewer:
+            self.viewer.close()  # Close the viewer window
+            self.viewer = None  # Set viewer to None
+
     def viewer_setup(self):
-        # self.viewer.cam.trackbodyid = 0         # id of the body to track ()
-        # self.viewer.cam.distance = self.model.stat.extent * 3       # how much you "zoom in", model.stat.extent is the max limits of the arena
-        self.viewer.cam.distance = 2
-        self.viewer.cam.lookat[0] = 0         # x,y,z offset from the object (works if trackbodyid=-1)
-        self.viewer.cam.lookat[1] = 0
-        self.viewer.cam.lookat[2] = 0.8
-        self.viewer.cam.elevation = -10           # camera rotation around the axis in the plane going through the frame origin (if 0 you just see a line)
-        self.viewer.cam.azimuth = 180             # camera rotation around the camera's vertical axis
-        self.viewer.opt.geomgroup = 1   
+        """
+        Configures the viewer camera settings for optimal visualization.
+        """
+        # Camera distance and positioning
+        self.viewer.cam.distance = 2  # Set zoom level (distance from the object)
+        self.viewer.cam.lookat[0] = 0  # X offset for the camera focus point
+        self.viewer.cam.lookat[1] = 0  # Y offset for the camera focus point
+        self.viewer.cam.lookat[2] = 0.8  # Z offset for the camera focus point
 
-    def add_obstacle(self):
-        # add one obstacle and move pointer to that obstacle
-        self.num_obstacle_debug += 1
+        # Camera rotations and angles
+        self.viewer.cam.elevation = -10  # Camera rotation around the X axis (up/down)
+        self.viewer.cam.azimuth = 180  # Camera rotation around the Y axis (left/right)
+
+        # Set geometry group for visualization
+        self.viewer.opt.geomgroup = 1  # Set which geometry group to visualize
+
+    # ---------------------------------- User Interface Helpers--------------------------------- #
+
+    def _add_obstacle(self):
+        """
+        Adds a new obstacle to the simulation and moves the pointer to the newly added obstacle.
+        The obstacle is a sphere with a random position near a defined point.
+        """
+        self.num_obstacle_debug += 1  # Increment the obstacle count
+        # Append a new obstacle's frame (4x4 identity matrix) to the list of obstacle frames
         self.obstacle_debug_frame = np.concatenate([self.obstacle_debug_frame, np.eye(4)[None, :, :]], axis=0)
+        
+        # Set random position for the new obstacle near the point [0.6, 0.0, 0.793]
         self.obstacle_debug_frame[-1, :3, 3] = np.array([0.6, 0.0, 0.793]) + np.random.uniform(-0.2, 0.2, 3)
+        self.obstacle_debug_frame_last = np.concatenate(
+            [self.obstacle_debug_frame_last, self.obstacle_debug_frame[-1][None, :, :]], axis=0)
+        # Add a new sphere obstacle with a radius of 0.05 and a color for visualization
         self.obstacle_debug_geom.append(Geometry(type="sphere", radius=0.05, color=VizColor.obstacle_debug))
+        
+        # Set the newly added obstacle as the selected one
         self.obstacle_debug_selected = self.num_obstacle_debug - 1
-    
-    def remove_obstacle(self):
-        # remove pointed obstacle
+
+    def _remove_obstacle(self):
+        """
+        Removes the currently selected obstacle from the simulation.
+        """
         if self.num_obstacle_debug > 0:
-            self.num_obstacle_debug -= 1
+            self.num_obstacle_debug -= 1  # Decrement the obstacle count
+            
+            # Remove the selected obstacle's frame and geometry
             self.obstacle_debug_frame = np.concatenate(
                 [self.obstacle_debug_frame[:self.obstacle_debug_selected, :, :],
-                 self.obstacle_debug_frame[self.obstacle_debug_selected+1:, :, :]],
+                self.obstacle_debug_frame[self.obstacle_debug_selected + 1:, :, :]],
+                axis=0)
+            self.obstacle_debug_frame_last = np.concatenate(
+                [self.obstacle_debug_frame_last[:self.obstacle_debug_selected, :],
+                self.obstacle_debug_frame_last[self.obstacle_debug_selected + 1:, :]],
                 axis=0)
             self.obstacle_debug_geom = self.obstacle_debug_geom[:self.obstacle_debug_selected] + \
-                                        self.obstacle_debug_geom[self.obstacle_debug_selected+1:]
+                                        self.obstacle_debug_geom[self.obstacle_debug_selected + 1:]
+            
+            # Update the selected obstacle
             self.obstacle_debug_selected = 0 if self.num_obstacle_debug > 0 else None
 
-    # ---------------------------------- helpers --------------------------------- #
-    def key_callback(self, key):
-        
-        # perform obstacle movement / swtich when there are >0 obstacles
-        if self.num_obstacle_debug > 0:
-            selected = self.obstacle_debug_selected
-            step = self.manual_step_size
-            if key == glfw.KEY_RIGHT:      # Move +Y
-                if selected is not None:
-                    self.obstacle_debug_frame[selected, 1, 3] += step
-            elif key == glfw.KEY_LEFT:     # Move -Y
-                if selected is not None:
-                    self.obstacle_debug_frame[selected, 1, 3] -= step
-            elif key == glfw.KEY_UP:       # Move -X
-                if selected is not None:
-                    self.obstacle_debug_frame[selected, 0, 3] -= step
-            elif key == glfw.KEY_DOWN:     # Move +X
-                if selected is not None:
-                    self.obstacle_debug_frame[selected, 0, 3] += step
-            elif key == glfw.KEY_E:         # Move +Z
-                if selected is not None:
-                    self.obstacle_debug_frame[selected, 2, 3] += step
-            elif key == glfw.KEY_Q:         # Move -Z
-                if selected is not None:
-                    self.obstacle_debug_frame[selected, 2, 3] -= step
-            elif key == glfw.KEY_SPACE:
-                self.obstacle_debug_selected = (self.obstacle_debug_selected + 1) % self.num_obstacle_debug
+    def _key_callback(self, key):
+        """
+        Handles key events for obstacle movement and selection.
+        """
+        if self.debug_object is None:
+            self.debug_object = self.obstacle_debug_frame[self.obstacle_debug_selected]  # Get the selected obstacle geometry
             
-        if key == glfw.KEY_PAGE_UP:
+        # Handle movement keys for the selected obstacle
+        if key == glfw.KEY_RIGHT:  # Move +Y
+            self.debug_object[1, 3] += self.manual_step_size
+        elif key == glfw.KEY_LEFT:  # Move -Y
+            self.debug_object[1, 3] -= self.manual_step_size
+        elif key == glfw.KEY_UP:  # Move -X
+            self.debug_object[0, 3] -= self.manual_step_size
+        elif key == glfw.KEY_DOWN:  # Move +X
+            self.debug_object[0, 3] += self.manual_step_size
+        elif key == glfw.KEY_E:  # Move +Z
+            self.debug_object[2, 3] += self.manual_step_size
+        elif key == glfw.KEY_Q:  # Move -Z
+            self.debug_object[2, 3] -= self.manual_step_size
+        elif key == glfw.KEY_2:  # Rotate +Yaw
+            rotation = R.from_euler('xyz', [0, 0, 0.1], degrees=False)
+            self.debug_object[:3, :3] @= rotation.as_matrix()
+        elif key == glfw.KEY_3:  # Rotate -Yaw
+            rotation = R.from_euler('xyz', [0, 0, -0.1], degrees=False)
+            self.debug_object[:3, :3] @= rotation.as_matrix()
+                
+        # Switch to the next obstacle when SPACE is pressed
+        elif key == glfw.KEY_SPACE:
+            self.obstacle_debug_selected = (self.obstacle_debug_selected + 1) % self.num_obstacle_debug
+            self.debug_object = self.obstacle_debug_frame[self.obstacle_debug_selected]
+   
+        # Adjust the number of obstacles based on PAGE_UP/PAGE_DOWN keys
+        elif key == glfw.KEY_PAGE_UP:
             self.num_obstacle_debug_change_buf += 1
         elif key == glfw.KEY_PAGE_DOWN:
             self.num_obstacle_debug_change_buf -= 1
-    
-    # todo generalize to arbitrary Geometry types
-    def render_sphere(self, pos, size, color):
-        ''' Render a radial area in the environment '''
+            
+        elif key == glfw.KEY_O:
+            self.debug_object = self.right_goal_debug_frame
+        elif key == glfw.KEY_P:
+            self.debug_object = self.left_goal_debug_frame
+        
+    # ---------------------------------- Render Helpers --------------------------------- #
+
+    def render(self):
+        """Renders the simulation environment, including obstacles and scene updates."""
+        
+        # Render the virtual obstacle for debugging
+        self._render_obstacle_debug()
+
+        # If renderer is available, update the scene with current model data
+        if self.renderer:
+            self.renderer.update_scene(self.data)
+        
+        # If viewer is available, synchronize the viewer with the current scene state
+        if self.viewer:
+            self.viewer.sync()
+
+    def render_sphere(self, pos, mat, size, color):
+        """Render a radial area (sphere) in the environment."""
+        
+        if self.renderer is None:
+            return
+
         pos = np.asarray(pos)
         if pos.shape == (2,):
-            pos = np.r_[pos, 0]  # Z coordinate 0
+            pos = np.r_[pos, 0]  # Add Z-coordinate if only 2D position is given
+        
+        # Render the sphere in the main renderer scene
         mujoco.mjv_initGeom(
             self.renderer._scene.geoms[self.renderer._scene.ngeom],
             type=mujoco.mjtGeom.mjGEOM_SPHERE,
@@ -114,8 +168,10 @@ class MujocoAgent(SimulationAgent):
             pos=pos.flatten(),
             mat=np.eye(3).flatten(),
             rgba=color,
-            )
+        )
         self.renderer._scene.ngeom += 1
+        
+        # Render the sphere in the viewer scene if a viewer is available
         if self.viewer:
             mujoco.mjv_initGeom(
                 self.viewer.user_scn.geoms[self.viewer.user_scn.ngeom],
@@ -126,73 +182,155 @@ class MujocoAgent(SimulationAgent):
                 rgba=color,
             )
             self.viewer.user_scn.ngeom += 1
-    
+
+    def render_box(self, pos, mat, size, color):
+        """Render a rectangular area (box) in the environment."""
+        
+        if self.renderer is None:
+            return
+
+        pos = np.asarray(pos)
+        if pos.shape == (2,):
+            pos = np.r_[pos, 0]  # Add Z-coordinate if only 2D position is given
+        
+        # Render the box in the main renderer scene
+        mujoco.mjv_initGeom(
+            self.renderer._scene.geoms[self.renderer._scene.ngeom],
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            size=size / 2,  # Half the size for box rendering
+            pos=pos.flatten(),
+            mat=mat.flatten(),
+            rgba=color,
+        )
+        self.renderer._scene.ngeom += 1
+        
+        # Render the box in the viewer scene if a viewer is available
+        if self.viewer:
+            mujoco.mjv_initGeom(
+                self.viewer.user_scn.geoms[self.viewer.user_scn.ngeom],
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                size=size / 2,  # Half the size for box rendering
+                pos=pos.flatten(),
+                mat=mat.flatten(),
+                rgba=color,
+            )
+            self.viewer.user_scn.ngeom += 1
+
     def render_line_segment(self, pos1, pos2, radius, color):
-        """ Render a line segment in the environment """
+        """Render a line segment as a capsule between two positions."""
+        
+        if self.renderer is None:
+            return
+
         pos1 = np.asarray(pos1)
         pos2 = np.asarray(pos2)
+        
+        # Compute midpoint and direction of the line segment
         midpoint = (pos1 + pos2) / 2
         length = np.linalg.norm(pos2 - pos1)
-
         direction = (pos2 - pos1) / length
 
-        # Create a rotation matrix to align the capsule/cylinder with the line segment
+        # Compute the rotation matrix to align the capsule with the line
         z_axis = np.array([0, 0, 1])
         axis = np.cross(z_axis, direction)
         axis_len = np.linalg.norm(axis)
-
+        
+        # If axis is not aligned, compute the quaternion rotation
         if axis_len > 1e-6:
             axis = axis / axis_len
             angle = np.arccos(np.clip(np.dot(z_axis, direction), -1.0, 1.0))
             quat = np.zeros(4)
             mujoco.mju_axisAngle2Quat(quat, axis, angle)  # Compute quaternion
             rot_matrix = np.zeros((3, 3)).flatten()
-            mujoco.mju_quat2Mat(rot_matrix, quat) 
+            mujoco.mju_quat2Mat(rot_matrix, quat)
         else:
             rot_matrix = np.eye(3)
 
-        # Render in the main renderer
+        # Render the capsule in the main renderer scene
         mujoco.mjv_initGeom(
             self.renderer._scene.geoms[self.renderer._scene.ngeom],
             type=mujoco.mjtGeom.mjGEOM_CAPSULE,
-            size=[radius, length / 2, 0.0],  # Capsule radius and half-length
+            size=[radius, length / 2, 0.0],  # Capsule size: [radius, half-length]
             pos=midpoint.flatten(),
             mat=rot_matrix.flatten(),
             rgba=color,
         )
         self.renderer._scene.ngeom += 1
 
-        # Render in the viewer, if available
+        # Render the capsule in the viewer scene if a viewer is available
         if self.viewer:
             mujoco.mjv_initGeom(
                 self.viewer.user_scn.geoms[self.viewer.user_scn.ngeom],
                 type=mujoco.mjtGeom.mjGEOM_CAPSULE,
-                size=[radius, length / 2, 0.0],
+                size=[radius, length / 2, 0.0],  # Capsule size: [radius, half-length]
                 pos=midpoint.flatten(),
                 mat=rot_matrix.flatten(),
                 rgba=color,
             )
             self.viewer.user_scn.ngeom += 1
 
+    def render_surface(self, points, color=(0.8, 0.3, 0.3, 1)):
+        """Render the convex hull of a set of 3D points as triangles."""
+        
+        # Center point of the convex hull (not currently used in rendering)
+        center_point = np.mean(points.reshape(-1, 3), axis=0)
 
-    
+        # Loop through each simplex (triangle) in the convex hull
+        for simplex in points:
+            v1, v2, v3 = simplex
+
+            # Compute edge directions and normal
+            dir_x = (v2 - v1)
+            dir_y = (v3 - v1)
+            dir_z = np.cross(dir_x, dir_y) / np.linalg.norm(np.cross(dir_x, dir_y))
+            
+            # Compute the transformation matrix for rendering the triangle
+            mat = np.vstack([dir_x, dir_y, dir_z]).T.flatten()
+
+            # Render the first side of the triangle
+            mujoco.mjv_initGeom(
+                self.viewer.user_scn.geoms[self.viewer.user_scn.ngeom],
+                type=mujoco.mjtGeom.mjGEOM_TRIANGLE,
+                size=[1, 1, 1],  # Triangle size
+                pos=v1.flatten(),
+                mat=mat.flatten(),
+                rgba=color,
+            )
+            self.viewer.user_scn.ngeom += 1
+
+            # Render the second side of the triangle (flipped normal)
+            mat = np.vstack([dir_y, dir_x, -dir_z]).T.flatten()
+            mujoco.mjv_initGeom(
+                self.viewer.user_scn.geoms[self.viewer.user_scn.ngeom],
+                type=mujoco.mjtGeom.mjGEOM_TRIANGLE,
+                size=[1, 1, 1],  # Triangle size
+                pos=v1.flatten(),
+                mat=mat.flatten(),
+                rgba=color,
+            )
+            self.viewer.user_scn.ngeom += 1
+
     def render_arrow(self, start, end, color):
+        """Render an arrow from the start point to the end point."""
+        
+        if self.renderer is None:
+            return
+
         start = np.asarray(start)
         end = np.asarray(end)
+        
+        # Compute arrow direction and length
         arrow_dir = end - start
         arrow_length = np.linalg.norm(arrow_dir)
 
-        # If the arrow length is zero, do not render
+        # If arrow length is too small, don't render
         if arrow_length < 1e-10:
             return
 
-        # Normalize the direction
+        # Normalize the arrow direction
         z = arrow_dir / arrow_length
 
-        # Construct an orientation matrix for the arrow:
-        # The arrow will point along the z-axis of this frame.
-        # We need two other perpendicular axes (x and y) to form a proper rotation matrix.
-        # Pick a temporary axis that is not parallel to z to form orthonormal basis.
+        # Create an orthonormal basis for rotation matrix
         if abs(z[0]) < 0.9:
             tmp = np.array([1.0, 0.0, 0.0])
         else:
@@ -203,162 +341,64 @@ class MujocoAgent(SimulationAgent):
         x = np.cross(y, z)
         mat = np.column_stack((x, y, z)).flatten()
 
-        # Define arrow sizes:
-        # For mjGEOM_ARROW, size = [shaft_width, head_width, arrow_length].
-        # Adjust these as necessary to achieve a desirable look.
+        # Define arrow size (shaft radius, head radius, length)
         shaft_radius = 0.05 * arrow_length
         head_radius = 0.1 * arrow_length
         size = np.array([shaft_radius, head_radius, arrow_length])
 
-        pos = start  # Arrow base (pos) is at the start
-
-        # Add arrow to the renderer scene
+        # Render the arrow in the main renderer scene
         mujoco.mjv_initGeom(
             self.renderer._scene.geoms[self.renderer._scene.ngeom],
             type=mujoco.mjtGeom.mjGEOM_ARROW,
             size=size,
-            pos=pos,
+            pos=start,
             mat=mat,
             rgba=np.array(color),
         )
         self.renderer._scene.ngeom += 1
 
-        # Add arrow to the viewer scene if a viewer is available
+        # Render the arrow in the viewer scene if a viewer is available
         if self.viewer:
             mujoco.mjv_initGeom(
                 self.viewer.user_scn.geoms[self.viewer.user_scn.ngeom],
                 type=mujoco.mjtGeom.mjGEOM_ARROW,
                 size=size,
-                pos=pos,
+                pos=start,
                 mat=mat,
-                rgba=np.array(color)
+                rgba=np.array(color),
             )
             self.viewer.user_scn.ngeom += 1
 
-    def render_obstacle_debug(self):
+    def _render_obstacle_debug(self):
+        """Render obstacles for debugging purposes."""
         for i, (frame, geom) in enumerate(zip(self.obstacle_debug_frame, self.obstacle_debug_geom)):
             if geom.type == 'sphere':
-                self.render_sphere(frame[:3, 3], geom.attributes["radius"]*np.ones(3), geom.color)
+                self.render_sphere(
+                    pos=frame[:3, 3], 
+                    mat=frame[:3, :3],  
+                    size=geom.attributes["radius"] * np.ones(3), 
+                    color=geom.color
+                )
                 if i == self.obstacle_debug_selected:
-                    self.render_arrow(frame[:3, 3] + [0, 0, 0.15],
-                                      frame[:3, 3] + [0, 0, 0.01],
-                                      VizColor.obstacle_debug)
+                    self.render_arrow(
+                        frame[:3, 3] + [0, 0, 0.15],
+                        frame[:3, 3] + [0, 0, 0.01],
+                        VizColor.obstacle_debug
+                    )
+            elif geom.type == 'box':
+                self.render_box(
+                    pos=frame[:3, 3], 
+                    mat=frame[:3, :3],  
+                    size=np.array([geom.attributes["length"], 
+                                geom.attributes["width"], 
+                                geom.attributes["height"]]), 
+                    color=geom.color
+                )
+                if i == self.obstacle_debug_selected:
+                    self.render_arrow(
+                        frame[:3, 3] + [0, 0, 0.15],
+                        frame[:3, 3] + [0, 0, 0.01],
+                        VizColor.obstacle_debug
+                    )
             else:
                 raise ValueError(f'Unknown geometry type: {geom.type}')
-
-    # -------------------------------- simulation -------------------------------- #
-
-    def set_dof_pos(self, dof_pos: np.ndarray) -> None:
-        qpos = np.zeros(self.model.nq)
-        
-        for mj_dof in self.robot_cfg.MujocoDoFs:
-            dof = self.robot_cfg.MujocoDoF_to_DoF[mj_dof]
-            qpos[mj_dof] = dof_pos[dof]
-        self.data.qpos = qpos
-        self.model.opt.gravity[:] = [0, 0, 0]  # Disable gravity
-        self.data.qvel[:] = 0                  # Clear velocities
-        self.data.qacc[:] = 0                  # Clear accelerations
-        self.data.qfrc_applied[:] = 0          # Clear applied forces
-        self.data.xfrc_applied[:, :] = 0       # Clear external forces
-
-    def reset(self) -> None:
-        # todo
-        pass
-    
-    def mujoco_step(self):
-        mujoco.mj_step(self.model, self.data)
-        if self.viewer:
-            self.viewer.user_scn.ngeom = 0
-        self.renderer._scene.ngeom = 0
-        time.sleep(self.model.opt.timestep)
-        
-    def render(self):
-
-        # render virtual obstacle
-        self.render_obstacle_debug()
-
-        # update mujoco scene
-        self.renderer.update_scene(self.data)
-        self.viewer.sync()
-
-    # ---------------------------------------------------------------------------- #
-    #                                 base routines                                #
-    # ---------------------------------------------------------------------------- #
-
-    def _send_control_modeled_dynamics(self, command, **kwargs):
-
-        # invoke modeled dynamics
-        x = self.compose_state()
-        x_dot = self.robot_cfg.dynamics_xdot(x, command)
-        
-        # integration
-        x += x_dot * self.dt
-        
-        # get command
-        self.dof_pos_cmd = self.robot_cfg.decompose_state_to_dof(x)
-        self.dof_vel_cmd = self.robot_cfg.decompose_state_to_dof(x_dot)
-        
-        # set state by overriding dof_pos
-        self.set_dof_pos(self.dof_pos_cmd)
-    
-    def post_control_processing(self, **kwargs):
-        
-        num_obstacle_debug_change = self.num_obstacle_debug_change_buf
-        self.num_obstacle_debug_change_buf -= num_obstacle_debug_change # prevent miss counting keyboard input
-        
-        while num_obstacle_debug_change > 0:
-            self.add_obstacle()
-            num_obstacle_debug_change -= 1
-            
-        while num_obstacle_debug_change < 0:
-            self.remove_obstacle()
-            num_obstacle_debug_change += 1
-            
-        self.mujoco_step()
-
-    def get_feedback(self) -> None:
-
-        ret = {}
-
-        # feedback robot frame in world frame
-        # Get body ID
-
-        # Extract global position and orientation
-        global_position = self.data.body("robot").xpos.copy()  # [x, y, z]
-        global_orientation = self.data.body("robot").xmat.copy().reshape(3, 3)  # 3x3 rotation matrix
-
-        # Construct the 4x4 transformation matrix
-        robot_base_frame = np.eye(4)  # Start with identity matrix
-        robot_base_frame[:3, :3] = global_orientation  # Top-left 3x3 is the rotation matrix
-        robot_base_frame[:3, 3] = global_position 
-        
-        ret["robot_base_frame"] = robot_base_frame
-
-        # feedback dof pos
-        dof_pos_fbk = np.zeros(self.num_dof)
-        for dof in self.robot_cfg.DoFs:
-            mj_dof = self.robot_cfg.DoF_to_MujocoDoF[dof]
-            dof_pos_fbk[dof] = self.data.qpos[mj_dof]
-
-        ret["dof_pos_fbk"] = dof_pos_fbk
-
-        if self.dof_pos_cmd is None:
-            self.dof_pos_cmd = dof_pos_fbk
-        if self.dof_vel_cmd is None:
-            self.dof_vel_cmd = np.zeros(self.num_dof)
-        if self.dof_acc_cmd is None:
-            self.dof_acc_cmd = np.zeros(self.num_dof)
-
-        # commanded dof
-        ret["dof_pos_cmd"] = self.dof_pos_cmd
-        ret["dof_vel_cmd"] = self.dof_vel_cmd
-        ret["dof_acc_cmd"] = self.dof_acc_cmd
-
-        # dynamics state
-        ret["state"] = self.compose_state()
-
-        # virtual obstacle
-        ret["obstacle_debug_frame"] = self.obstacle_debug_frame
-        ret["obstacle_debug_geom"] = self.obstacle_debug_geom
-
-        return ret

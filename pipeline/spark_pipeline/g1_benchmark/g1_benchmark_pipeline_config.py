@@ -1,30 +1,44 @@
 from spark_pipeline.base.base_pipeline_config import BasePipelineConfig
-from spark_safe.safe_controller import G1BasicSafeControllerConfig
 
 class G1BenchmarkPipelineConfig(BasePipelineConfig):
     
+    # benchmark config
     max_num_steps = 500
+    max_num_reset = -1
+    enable_logger = False
+    enable_plotter = False
+    enable_safe_zone_render = False
+    
+    class metric_selection:  
+        dist_self         = False
+        dist_robot_to_env = False
+        dist_goal_arm     = False
+        dist_goal_base    = False
+        seed    = False
+        done    = False
+
+        violation = True
     
     class robot( BasePipelineConfig.robot ):
         
         class cfg( BasePipelineConfig.robot.cfg ):
-            class_name = "G1BasicConfig"
+            class_name = "G1MobileBaseDynamic1Config"
         
         class kinematics( BasePipelineConfig.robot.kinematics ):
-            class_name = "G1BasicKinematics"
+            pass
     
     class env( BasePipelineConfig.env ):
     
         class task(  BasePipelineConfig.env.task ):
             class_name          = "G1BenchmarkTask"
             task_name           = "G1BenchmarkTask" # e.g., will appear as ros node name
-            enable_ros          = False
-            max_episode_length  = 200
+            task_config         = {}
 
         class agent( BasePipelineConfig.env.agent ):
-            class_name = "G1BasicMujocoAgent"
-            mujoco_model = "g1/scene_29dof.xml"
-            dt = 0.01
+            class_name = "G1MujocoAgent"
+            dt = 0.002
+            control_decimation = 5
+            enable_viewer = True
             # obstacles perceived by agent. For mujoco, we create some obstacles movable via keyboard
             obstacle_debug = dict(
                 num_obstacle = 0,
@@ -34,7 +48,7 @@ class G1BenchmarkPipelineConfig(BasePipelineConfig):
     class algo( BasePipelineConfig.algo ):
     
         class policy( BasePipelineConfig.algo.policy ):
-            class_name = "G1TeleopPIDPolicy"
+            class_name = "G1BenchmarkPIDPolicy"
 
         class safe_controller( BasePipelineConfig.algo.safe_controller ):
             
@@ -43,37 +57,30 @@ class G1BenchmarkPipelineConfig(BasePipelineConfig):
             # robot spec in safe_controller config is ignored
             
             class safety_index( BasePipelineConfig.algo.safe_controller.safety_index ):
-                class_name = "BasicCollisionSafetyIndex"
+                class_name = "FirstOrderCollisionSafetyIndex"
                 min_distance = {
-                    "environment": 0.05,
-                    "self": 0.05
+                    "environment": 0.1,
+                    "self": 0.01
                 }
                 
-                # todo move to robot config
-                enable_self_collision = True
-                env_collision_vol_ignore = [
-                    "pelvis_link_1",
-                    "pelvis_link_2",
-                    "pelvis_link_3",
-                    "waist_yaw_joint",
-                    "waist_roll_joint",
-                    "waist_pitch_joint"
-                ]
+                enable_self_collision = False
             
             class safe_algo( BasePipelineConfig.algo.safe_controller.safe_algo ):
                 class_name = "SafeSetAlgorithm"
-                eta = 1.0
+                eta_ssa = 1.0
                 safety_buffer = 0.1 # positive to allow hold state
+                use_slack = True
                 slack_weight = 1e3
+                slack_regularization_order = 2
                 control_weight = [
                     1.0, 1.0, 1.0, # waist
                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, # left arm
                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, # right arm
-                    10.0, 10.0, 10.0 # locomotion
+                    1.0, 1.0, 1.0 # locomotion
                 ]
     
                 # class_name = "SublevelSafeSetAlgorithm"
-                # lambda_SSS = 1.0
+                # lambda_sss = 1.0
                 # slack_weight = 1e3
                 # control_weight = [
                 #     1.0, 1.0, 1.0,
@@ -93,10 +100,10 @@ class G1BenchmarkPipelineConfig(BasePipelineConfig):
                 # ]
                 
                 # class_name = "PotentialFieldMethod"
-                # lambda_pfm = 0.1
+                # c_pfm = 0.1
                 
                 # class_name = "SlidingModeAlgorithm"
-                # c_2 = 1.0
+                # c_sma = 1.0
 
 
 

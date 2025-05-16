@@ -49,19 +49,19 @@ conda create --name $ENV_NAME "python=3.10" -y || handle_error "Failed to create
 echo "Step 2: Activating Conda environment: $ENV_NAME"
 conda activate $ENV_NAME || handle_error "Failed to activate Conda environment $ENV_NAME using 'conda activate $ENV_NAME'"
 
-# Step 3: Install Pinocchio
-echo "Step 3: Installing Pinocchio"
-conda install -c conda-forge pinocchio=3.2.0 -y || handle_error "Failed to install Pinocchio using 'conda install -c conda-forge pinocchio=3.2.0'"
-
 # Step 4: Install numpy=2.0
-echo "Step 4: Installing numpy=2.0"
+echo "Step 3: Installing numpy=2.0"
 conda install numpy=2.0 -y || handle_error "Failed to install numpy=2.0 using 'conda install numpy=2.0'"
+
+# Step 3: Install Pinocchio
+echo "Step 4: Installing Pinocchio"
+conda install -c conda-forge pinocchio=3.2.0 -y || handle_error "Failed to install Pinocchio using 'conda install -c conda-forge pinocchio=3.2.0'"
 
 # Step 5: Install core Python packages
 echo "Step 5: Installing core Python packages"
 
 # Declare the array of core Python packages
-core_packages=("scipy" "numba" "casadi" "matplotlib" "mujoco" "pyyaml" "osqp" "tensorboardX")
+core_packages=("scipy" "numba" "casadi" "matplotlib" "mujoco" "pyyaml" "osqp" "tensorboardX" "torch" "scikit-image" "tensorboard" "onnx" "onnx2torch" "ipdb")
 
 # Iterate through each package in the array
 for package in "${core_packages[@]}"; do

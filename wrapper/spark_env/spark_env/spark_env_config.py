@@ -40,4 +40,3 @@ class SparkEnvConfig:
         
     class agent:
         class_name = None
-        mujoco_model = None

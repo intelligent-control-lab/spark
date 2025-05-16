@@ -6,9 +6,10 @@ class SimulationAgent(BaseAgent):
 
     def __init__(self, robot_cfg):
         super().__init__(robot_cfg)
+        self.use_sim_dynamics = True
 
-    def send_control(self, command: np.ndarray, use_sim_dynamics: bool = False, **kwargs) -> None:
-        if use_sim_dynamics:
+    def send_control(self, command: np.ndarray, **kwargs) -> None:
+        if self.use_sim_dynamics:
             self._send_control_sim_dynamics(command, **kwargs)
         else:
             self._send_control_modeled_dynamics(command, **kwargs)

@@ -28,13 +28,6 @@ class BaseSafetyIndex(ABC):
             [num_constraint,] Safety index function.     
         '''
         pass
-    
-    @abstractmethod
-    def grad_phi(self):
-        '''
-            [num_constraint, num_dof] gradient of safety index function w.r.t. dof.
-        '''
-        pass
 
     def decode_constraint_info(self) -> dict:
         '''

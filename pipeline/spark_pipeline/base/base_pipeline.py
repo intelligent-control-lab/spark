@@ -6,15 +6,19 @@ from spark_algo import SparkAlgoWrapper
 from spark_env import SparkEnvWrapper
 import numpy as np
 import time
+from typing import Generic, TypeVar
 
-class BasePipeline(ABC):
+PipelineConfigT = TypeVar("PipelineConfigT", bound="BasePipelineConfig")
+
+class BasePipeline(ABC, Generic[PipelineConfigT]):
     
-    def __init__(self, cfg : BasePipelineConfig):
+    def __init__(self, cfg : PipelineConfigT):
 
         self.cfg = cfg
         self.max_num_steps = self.cfg.max_num_steps
         
         self.robot_cfg : RobotConfig = initialize_class(self.cfg.robot.cfg)
+        self.cfg.robot.kinematics.class_name = self.robot_cfg.kinematics_class_name
         self.robot_kinematics : RobotKinematics = initialize_class(self.cfg.robot.kinematics, robot_cfg=self.robot_cfg)
         self.env : SparkEnvWrapper = SparkEnvWrapper(self.cfg.env, robot_cfg=self.robot_cfg, robot_kinematics=self.robot_kinematics)
         self.algo : SparkAlgoWrapper = SparkAlgoWrapper(self.cfg.algo, robot_cfg=self.robot_cfg, robot_kinematics=self.robot_kinematics)
@@ -37,12 +41,11 @@ class BasePipeline(ABC):
             
             # environment step
             # s_next = env(s, a)
-            agent_feedback, task_info = self.env.step(u_safe)
+            agent_feedback, task_info = self.env.step(u_safe, action_info)
             
             # next action
             # a_next = algo(s_next)
             u_safe, action_info = self.algo.act(agent_feedback, task_info)
-            
             # post physics step (e.g., rendering, status publishing)
             self.post_physics_step(agent_feedback, task_info, action_info)
             

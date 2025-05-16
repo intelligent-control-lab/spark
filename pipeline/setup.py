@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="spark_pipeline",
-    version="1.0.0",
+    version="0.1",
     description="Main task runner.",
     packages=find_packages(),
     include_package_data=True,

@@ -49,6 +49,13 @@ class RobotConfig(ABC):
     # ---------------------------------------------------------------------------- #
     #                                   hardware                                   #
     # ---------------------------------------------------------------------------- #
+    @property
+    @abstractmethod
+    def NumTotalMotors(self) -> int:
+        """
+        Total number of motors in the robot.
+        """
+        pass
     
     @property
     @abstractmethod
@@ -67,6 +74,30 @@ class RobotConfig(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def NormalMotor(self) -> list:
+        """
+        List of motor indices representing normal actuators.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def WeakMotor(self) -> list:
+        """
+        List of motor indices representing weak actuators.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def DelicateMotor(self) -> list:
+        """
+        List of motor indices representing delicate actuators.
+        """
+        pass
+
     # ---------------------------------------------------------------------------- #
     #                                      DoF                                     #
     # ---------------------------------------------------------------------------- #
@@ -76,6 +107,14 @@ class RobotConfig(ABC):
     def DoFs(self) -> IntEnum:
         """
         Enumeration for robot degrees of freedom indices. For control purpose.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def DefaultDoFVal(self) -> dict:
+        """
+        Mapping from DoFs to default joint values.
         """
         pass
     
@@ -133,13 +172,21 @@ class RobotConfig(ABC):
     @abstractmethod
     def num_state(self):
         pass
+    
+    @property
+    def num_dof(self):
+        return len(self.DoFs)
 
     @abstractmethod
     def compose_state_from_dof(self):
         pass
 
     @abstractmethod
-    def decompose_state_to_dof(self):
+    def decompose_state_to_dof_pos(self):
+        pass
+    
+    @abstractmethod
+    def decompose_state_to_dof_vel(self):
         pass
 
     @abstractmethod
@@ -164,7 +211,6 @@ class RobotConfig(ABC):
             control: [num_control,]
             return: [num_state,]
         '''
-
         return (self.dynamics_f(state.reshape(-1, 1)) + self.dynamics_g(state.reshape(-1, 1)) @ control.reshape(-1, 1)).reshape(-1)
 
     # ---------------------------------------------------------------------------- #
@@ -259,7 +305,15 @@ class RobotConfig(ABC):
     @abstractmethod
     def SelfCollisionVolIgnored(self) -> list:
         """
-        List of Frames values representing ignored collision volumes.
+        List of Frames values representing ignored self collision volumes.
+        """
+        pass
+    
+    @property
+    @abstractmethod
+    def EnvCollisionVolIgnored(self) -> list:
+        """
+        List of Frames values representing ignored environment collision volumes.
         """
         pass
 

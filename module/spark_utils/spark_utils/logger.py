@@ -2,6 +2,32 @@ import os
 from tensorboardX import SummaryWriter
 import numpy as np
 
+class DataBuffer:
+    
+    def __init__(self):
+        self.data = {}
+    
+    def add(self, key, value=None):
+        if key not in self.data:
+            self.data[key] = []
+            
+        if value is not None:
+            self.data[key].append(value)
+    
+    def get(self, key):
+        return self.data[key]
+    
+    def clear(self):
+        self.data = {}
+        
+    def save_npz(self, path):
+        
+        for key in self.data:
+            self.data[key] = np.array(self.data[key])
+        
+        np.savez(path, **self.data)
+        print("Data saved to: ", path)
+
 class Logger:
     def __init__(self, log_dir, n_logged_samples=10, summary_writer=None, counter=0):
         self._log_dir = log_dir

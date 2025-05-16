@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="spark_policy",
-    version="1.0.0",
+    version="0.1",
     description="Robot policy.",
     packages=find_packages(),
     include_package_data=True,

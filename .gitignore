@@ -1,5 +1,9 @@
 __pycache__/
 log/
+data/
 **/*.egg-info/
 .vscode
 **/MUJOCO_LOG.TXT
+**/*_log/
+**/dev
+publication/

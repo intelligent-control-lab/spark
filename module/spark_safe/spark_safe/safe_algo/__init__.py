@@ -3,10 +3,17 @@ from .base.bypass_safe_algo import ByPassSafeControl
 
 from .value_based.base.base_safety_index import BaseSafetyIndex
 from .value_based.base.value_based_safe_algo import ValueBasedSafeAlgorithm
-from .value_based.base.basic_collision_safety_index import BasicCollisionSafetyIndex
+from .value_based.base.collision_safety_index_1 import FirstOrderCollisionSafetyIndex
+from .value_based.base.collision_safety_index_1_approx import FirstOrderCollisionSafetyIndexApprox
+from .value_based.base.collision_safety_index_2 import SecondOrderCollisionSafetyIndex 
+from .value_based.base.collision_safety_index_2_approx import SecondOrderCollisionSafetyIndexApprox
+from .value_based.base.collision_safety_index_2_nn import SecondOrderNNCollisionSafetyIndex
 
-from .value_based.ssa.safe_set_algorithm import SafeSetAlgorithm
-from .value_based.cbf.control_barrier_function import ControlBarrierFunction
-from .value_based.sss.sublevel_safe_set_algorithm import SublevelSafeSetAlgorithm
-from .value_based.sma.sliding_mode_algorithm import SlidingModeAlgorithm
-from .value_based.pfm.potential_field_method import PotentialFieldMethod
+from .value_based.ssa.basic_safe_set_algorithm import BasicSafeSetAlgorithm
+from .value_based.ssa.relaxed_safe_set_algorithm import RelaxedSafeSetAlgorithm
+from .value_based.cbf.basic_control_barrier_function import BasicControlBarrierFunction
+from .value_based.cbf.relaxed_control_barrier_function import RelaxedControlBarrierFunction
+from .value_based.sss.basic_sublevel_safe_set_algorithm import BasicSublevelSafeSetAlgorithm
+from .value_based.sss.relaxed_sublevel_safe_set_algorithm import RelaxedSublevelSafeSetAlgorithm
+from .value_based.sma.basic_sliding_mode_algorithm import BasicSlidingModeAlgorithm
+from .value_based.pfm.basic_potential_field_method import BasicPotentialFieldMethod
