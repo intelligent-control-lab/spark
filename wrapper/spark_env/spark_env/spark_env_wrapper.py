@@ -19,20 +19,21 @@ class SparkEnvWrapper:
     def reset(self):
         
         self.agent.reset()
-        self.task.reset()
         
         # get agent feedback
         agent_feedback = self.agent.get_feedback()
+        
+        self.task.reset(agent_feedback)
         
         # process agent feedback, receive additional perception, generate goal
         task_info = self.task.get_info(agent_feedback)
         
         return agent_feedback, task_info
     
-    def step(self, u_safe):
+    def step(self, u_safe, action_info):
         
         # execute action
-        self.agent.step(u_safe)
+        self.agent.step(u_safe, action_info = action_info)
 
         # get agent feedback
         agent_feedback = self.agent.get_feedback()

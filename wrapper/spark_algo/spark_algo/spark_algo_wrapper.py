@@ -13,7 +13,7 @@ class SparkAlgoWrapper:
         # self.safe_controller : BaseSafeController = initialize_class(
         #     self.cfg.safe_controller, robot_cfg=robot_cfg, robot_kinematics=robot_kinematics
         # )
-        
+        self.robot_cfg = robot_cfg
         self.safe_controller : BaseSafeController = BaseSafeController(
             cfg = self.cfg.safe_controller,
             robot_cfg = robot_cfg,
@@ -30,7 +30,6 @@ class SparkAlgoWrapper:
             agent_feedback = agent_feedback,
             task_info = task_info
         )
-        
         # compute safe control
         u_safe, safe_control_info = self.safe_controller.safe_control(
             x = agent_feedback["state"],
@@ -39,5 +38,15 @@ class SparkAlgoWrapper:
             task_info = task_info,
             action_info = action_info
         )
-        
+        if np.isnan(u_safe).any() or np.isinf(u_safe).any():
+            print("u_safe contains nan or inf", u_safe)
+            u_safe = np.zeros_like(u_safe)
+            
+            import ipdb;ipdb.set_trace()
+            
+        for control_id in self.robot_cfg.Control:
+            u_safe[control_id] = np.clip(u_safe[control_id], -self.robot_cfg.ControlLimit[control_id], self.robot_cfg.ControlLimit[control_id])
+
+        action_info['u_ref'] = u_ref
+        action_info['u_safe'] = u_safe
         return u_safe, {**action_info, **safe_control_info}

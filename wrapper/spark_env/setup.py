@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="spark_env",
-    version="1.0.0",
+    version="0.1",
     description="Env wrapper.",
     packages=find_packages(),
     include_package_data=True,

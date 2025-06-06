@@ -34,7 +34,7 @@ class BaseTask(ABC):
         self.num_obstacle_agent = self.agent.num_obstacle_agent
         
     @abstractmethod
-    def reset(self):
+    def reset(self, feedback):
         '''
             Reset the task environment.
         '''

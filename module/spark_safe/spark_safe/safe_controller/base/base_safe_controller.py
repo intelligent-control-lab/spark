@@ -32,7 +32,7 @@ class BaseSafeController:
         else:
             self.robot_kinematics : RobotKinematics = initialize_class(self.cfg.robot.kinematics, robot_cfg=self.robot_cfg)
             print("BaseSafeController: initializing robot_kinematics")
-
+            
         self.safety_index : BaseSafetyIndex = initialize_class(self.cfg.safety_index, robot_kinematics=self.robot_kinematics)
         self.safe_algo : BaseSafeAlgorithm = initialize_class(self.cfg.safe_algo, safety_index=self.safety_index, robot_kinematics=self.robot_kinematics)
     

@@ -5,7 +5,7 @@ Developer: Kai Yun
 import json
 
 from unitree_sdk2py.rpc.client import Client
-from g1.loco.g1_loco_api import *
+from spark_agent.real.g1.loco.g1_loco_api import *
 
 
 class LocoClient(Client):

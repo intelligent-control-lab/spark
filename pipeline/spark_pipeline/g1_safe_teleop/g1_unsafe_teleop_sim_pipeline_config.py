@@ -1,5 +1,4 @@
 from spark_pipeline.base.base_pipeline_config import BasePipelineConfig
-from spark_safe.safe_controller import G1BasicSafeControllerConfig
 
 class G1UnsafeTeleopSimPipelineConfig(BasePipelineConfig):
     
@@ -8,10 +7,10 @@ class G1UnsafeTeleopSimPipelineConfig(BasePipelineConfig):
     class robot( BasePipelineConfig.robot ):
         
         class cfg( BasePipelineConfig.robot.cfg ):
-            class_name = "G1BasicConfig"
+            class_name = "G1WholeBodyConfig"
         
         class kinematics( BasePipelineConfig.robot.kinematics ):
-            class_name = "G1BasicKinematics"
+            pass
     
     class env( BasePipelineConfig.env ):
     
@@ -28,8 +27,7 @@ class G1UnsafeTeleopSimPipelineConfig(BasePipelineConfig):
             max_episode_length  = -1
 
         class agent( BasePipelineConfig.env.agent ):
-            class_name = "G1BasicMujocoAgent"
-            mujoco_model = "g1/scene_29dof.xml"
+            class_name = "G1MujocoAgent"
             dt = 0.01
             # obstacles perceived by agent. For mujoco, we create some obstacles movable via keyboard
             obstacle_debug = dict(
@@ -47,23 +45,11 @@ class G1UnsafeTeleopSimPipelineConfig(BasePipelineConfig):
             class safety_index( BasePipelineConfig.algo.safe_controller.safety_index ):
                 class_name = "BasicCollisionSafetyIndex"
                 min_distance = {
-                    "environment": 0.01,
+                    "environment": 0.1,
                     "self": 0.01
                 }
                 
-                # todo move to robot config
                 enable_self_collision = True
-                env_collision_vol_ignore = [
-                    "pelvis_link_1",
-                    "pelvis_link_2",
-                    "pelvis_link_3",
-                    "waist_yaw_joint",
-                    "waist_roll_joint",
-                    "waist_pitch_joint",
-                    "torso_link_1",
-                    "torso_link_2",
-                    "torso_link_3"
-                ]
             
             class safe_algo( BasePipelineConfig.algo.safe_controller.safe_algo ):
                 class_name = "ByPassSafeControl"

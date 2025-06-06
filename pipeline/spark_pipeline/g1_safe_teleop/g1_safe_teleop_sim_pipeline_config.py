@@ -1,18 +1,36 @@
 from spark_pipeline.base.base_pipeline_config import BasePipelineConfig
-from spark_safe.safe_controller import G1BasicSafeControllerConfig
 
 class G1SafeTeleopSimPipelineConfig(BasePipelineConfig):
     
     max_num_steps = -1
+    enable_logger = False
+    enable_plotter = False
+    enable_safe_zone_render = False
     
+    class metric_selection:
+        dof_pos = False
+        dof_vel = False
+        goal_pos = False
+        obstacle_pos = False
+        
+        dist_self         = False
+        dist_robot_to_env = False
+        dist_goal_arm     = False
+        dist_goal_base    = False
+        seed    = False
+        done    = False
+
+        violation = True
+        loop_time = True
+        trigger_safe_controller = True
+        
     class robot( BasePipelineConfig.robot ):
         
         class cfg( BasePipelineConfig.robot.cfg ):
-            class_name = "G1BasicConfig"
-            # class_name = "G1RightArmConfig"
+            class_name = "G1SportModeDynamic1Config"
         
         class kinematics( BasePipelineConfig.robot.kinematics ):
-            class_name = "G1BasicKinematics"
+            pass
     
     class env( BasePipelineConfig.env ):
     
@@ -20,52 +38,47 @@ class G1SafeTeleopSimPipelineConfig(BasePipelineConfig):
             class_name          = "G1TeleopSimTask"
             task_name           = "G1TeleopSimTask" # e.g., will appear as ros node name
             enable_ros          = True
+            
             ros_params = dict(
                 robot_command_topic = "/g1_29dof/arm_position_controller/command",
                 robot_state_topic   = "/g1_29dof/robot_state",
                 robot_teleop_topic  = "/g1_29dof/robot_teleop",
                 obstacle_topic      = "/g1_29dof/human_state",
+                mssa_demo_obstacle_topic = "/g1_29dof/obstacle_state",
             )
             max_episode_length  = -1
 
         class agent( BasePipelineConfig.env.agent ):
-            class_name = "G1BasicMujocoAgent"
-            mujoco_model = "g1/scene_29dof.xml"
-            dt = 0.01
+            class_name = "G1MujocoAgent"
+            dt = 0.002
+            control_decimation = 5
+            enable_viewer = True
             # obstacles perceived by agent. For mujoco, we create some obstacles movable via keyboard
             obstacle_debug = dict(
                 num_obstacle = 2,
-                manual_movement_step_size = 0.1
+                manual_movement_step_size = 0.01
             )
     
     class algo( BasePipelineConfig.algo ):
     
         class policy( BasePipelineConfig.algo.policy ):
-            class_name = "G1TeleopPIDPolicy"
-
+            class_name = "G1TeleopPIDPolicy" 
+            
         class safe_controller( BasePipelineConfig.algo.safe_controller ):
             
             class safety_index( BasePipelineConfig.algo.safe_controller.safety_index ):
-                class_name = "BasicCollisionSafetyIndex"
+                class_name = "FirstOrderCollisionSafetyIndex"
                 min_distance = {
-                    "environment": 0.01,
+                    "environment": 0.1,
                     "self": 0.01
                 }
                 
-                # todo move to robot config
                 enable_self_collision = True
-                env_collision_vol_ignore = [
-                    "pelvis_link_1",
-                    "pelvis_link_2",
-                    "pelvis_link_3",
-                    "waist_yaw_joint",
-                    "waist_roll_joint",
-                    "waist_pitch_joint"
-                ]
             
             class safe_algo( BasePipelineConfig.algo.safe_controller.safe_algo ):
+                # class_name = "ByPassSafeControl"
                 class_name = "SafeSetAlgorithm"
-                eta = 1.0
+                eta_ssa = 1.0
                 safety_buffer = 0.1 # positive to allow hold state
                 slack_weight = 1e3
                 control_weight = [
@@ -76,7 +89,7 @@ class G1SafeTeleopSimPipelineConfig(BasePipelineConfig):
                 ]
                 
                 # class_name = "SublevelSafeSetAlgorithm"
-                # lambda_SSS = 1.0
+                # lambda_sss = 1.0
                 # slack_weight = 1e3
                 # control_weight = [
                 #     1.0, 1.0, 1.0,
@@ -96,10 +109,10 @@ class G1SafeTeleopSimPipelineConfig(BasePipelineConfig):
                 # ]
                 
                 # class_name = "PotentialFieldMethod"
-                # lambda_pfm = 0.1
+                # c_pfm = 0.1
                 
                 # class_name = "SlidingModeAlgorithm"
-                # c_2 = 1.0
+                # c_sma = 1.0
     
 
 
