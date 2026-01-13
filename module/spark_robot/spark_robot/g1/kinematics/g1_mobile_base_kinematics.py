@@ -13,7 +13,7 @@ class G1MobileBaseKinematics(G1FixedBaseKinematics):
         super().__init__(robot_cfg, **kwargs)
 
     def _init_whole_body_kinematics(self):
-        print("Initializing G1MobileBaseKinematics")
+        print(f"Initializing {self.__class__.__name__}")
         jointComposite = pin.JointModelComposite(3);
         jointComposite.addJoint(pin.JointModelPX());
         jointComposite.addJoint(pin.JointModelPY());
@@ -37,9 +37,9 @@ class G1MobileBaseKinematics(G1FixedBaseKinematics):
             print(f"Frame {frame.name} has ID {self.pin_frame_dict[frame.name]}")
       
     def inverse_kinematics(self, T , current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
-        left_wrist, right_wrist = T[0], T[1]
+        right_wrist, left_wrist  = T[0], T[1]
         if current_lr_arm_motor_q is not None:
-            self.init_data = current_lr_arm_motor_q
+            self.init_data = current_lr_arm_motor_q[:17]
         self.opti.set_initial(self.var_q, self.init_data)
 
         self.opti.set_value(self.param_tf_l, left_wrist)

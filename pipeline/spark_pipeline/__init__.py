@@ -4,14 +4,19 @@ SPARK_PIPELINE_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)
 
 from .base.base_pipeline_config import BasePipelineConfig
 from .base.base_pipeline import BasePipeline
-
-from .g1_safe_teleop.g1_safe_teleop_real_pipeline_config import G1SafeTeleopRealPipelineConfig
-from .g1_safe_teleop.g1_safe_teleop_sim_pipeline_config import G1SafeTeleopSimPipelineConfig
-from .g1_safe_teleop.g1_unsafe_teleop_sim_pipeline_config import G1UnsafeTeleopSimPipelineConfig
-from .g1_safe_teleop.g1_safe_teleop_pipeline import G1SafeTeleopPipeline
-
+from .teleop.teleop_pipeline_config import TeleopPipelineConfig
+from .teleop.teleop_pipeline import TeleopPipeline
+from .autonomy.benchmark_pipeline_config import BenchmarkPipelineConfig
+from .autonomy.benchmark_pipeline import BenchmarkPipeline
+from .autonomy.g1_benchmark_pipeline_config import G1BenchmarkPipelineConfig
+from .autonomy.gen3_2f_benchmark_pipeline_config import Gen32fBenchmarkPipelineConfig
+from .autonomy.iiwa14_2f_benchmark_pipeline_config import IIWA142fBenchmarkPipelineConfig
+from .autonomy.lrmate200id_3f_benchmark_pipeline_config import LRMate200iD3fBenchmarkPipelineConfig
+from .autonomy.r1lite_benchmark_pipeline_config import R1LiteBenchmarkPipelineConfig
+from .teleop.gen3_2f_teleop_pipeline_config import Gen32fTeleopPipelineConfig
+from .teleop.iiwa14_2f_teleop_pipeline_config import IIWA142fTeleopPipelineConfig
+from .teleop.lrmate200id_3f_teleop_pipeline_config import LRMate200iD3fTeleopPipelineConfig
+from .teleop.r1lite_teleop_pipeline_config import R1LiteTeleopPipelineConfig
+from .teleop.g1_teleop_pipeline_config import G1TeleopPipelineConfig
 from .visualization import render_critical_pairs, render_value_based_debug_info
-
-from .g1_benchmark.g1_benchmark_pipeline_config import G1BenchmarkPipelineConfig
-from .g1_benchmark.g1_benchmark_pipeline import G1BenchmarkPipeline
-from .g1_benchmark.g1_benchmark_test_case_generator import generate_g1_benchmark_test_case
+from .autonomy.benchmark_test_case_generator import generate_benchmark_test_case

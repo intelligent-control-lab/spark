@@ -1,0 +1,316 @@
+<mujoco model="lrmate200id_3f_single">
+
+  <!-- ========================================================= -->
+  <!-- Compiler & Statistics                                     -->
+  <!-- ========================================================= -->
+  <compiler angle="radian" meshdir="meshes"/>
+  <statistic meansize="0.144785"
+             extent="1.23314"
+             center="0.025392 2.0634e-05 -0.245975"/>
+
+  <!-- ========================================================= -->
+  <!-- Defaults                                                  -->
+  <!-- ========================================================= -->
+  <default>
+
+    <default class="lrmate200id">
+      <material specular="0.7" shininess="0.3"/>
+      <joint axis="0 0 1"/>
+
+      <!-- Base joint controller -->
+      <general gaintype="fixed"
+               biastype="affine"
+               gainprm="3000"
+               biasprm="0 -3000 -500"/>
+
+      <default class="joint1">
+        <joint range="-3.141592654 3.141592654"/>
+        <general gainprm="2500" biasprm="0 -2500 -400"/>
+      </default>
+
+      <default class="joint2">
+        <joint range="-2.138028334 2.138028334"
+               damping="5.0"
+               armature="0.3"/>
+        <general gainprm="3000"
+                 biasprm="0 -3000 -500"
+                 forcerange="-500 500"/>
+      </default>
+
+      <default class="joint3">
+        <joint range="-3.752457892 3.752457892"
+               damping="3.0"
+               armature="0.2"/>
+        <general gainprm="4000"
+                 biasprm="0 -4000 -600"
+                 forcerange="-80 80"/>
+      </default>
+
+      <default class="joint4">
+        <joint range="-3.316125579 3.316125579"
+               damping="2.0"
+               armature="0.15"/>
+        <general gainprm="2000"
+                 biasprm="0 -2000 -300"
+                 forcerange="-40 40"/>
+      </default>
+
+      <default class="joint5">
+        <joint range="-2.181661565 2.181661565"
+               damping="1.5"
+               armature="0.12"/>
+        <general gainprm="1500"
+                 biasprm="0 -1500 -200"
+                 forcerange="-30 30"/>
+      </default>
+
+      <default class="joint6">
+        <joint range="-6.283185307 6.283185307"
+               damping="1.0"
+               armature="0.1"/>
+        <general gainprm="1000"
+                 biasprm="0 -1000 -150"
+                 forcerange="-20 20"/>
+      </default>
+
+      <!-- Gripper joint defaults -->
+      <default class="gripper_joint">
+        <joint damping="0.3"
+               armature="0.001"
+               solimplimit="0.95 0.99 0.001"
+               solreflimit="0.005 1"/>
+      </default>
+
+      <default class="visual2">
+        <geom type="mesh"
+              contype="0"
+              conaffinity="0"
+              group="2"/>
+      </default>
+
+      <default class="collision">
+        <geom group="3" material="collision_gray"/>
+      </default>
+
+      <site size="0.001" rgba="1 0 0 1" group="4"/>
+    </default>
+
+  </default>
+
+  <!-- ========================================================= -->
+  <!-- Assets                                                    -->
+  <!-- ========================================================= -->
+  <asset>
+    <mesh name="base_link"       file="lrmate200id/base_link.stl"/>
+    <mesh name="link_1"          file="lrmate200id/link_1.stl"/>
+    <mesh name="link_2"          file="lrmate200id/link_2.stl"/>
+    <mesh name="link_3"          file="lrmate200id/link_3.stl"/>
+    <mesh name="link_4"          file="lrmate200id/link_4.stl"/>
+    <mesh name="link_5"          file="lrmate200id/link_5.stl"/>
+    <mesh name="link_6"          file="lrmate200id/link_6.stl"/>
+
+    <!-- Robotiq 3F -->
+    <mesh name="gripper_link_0"  file="robotiq_3f/link_0_vis.stl"/>
+    <mesh name="gripper_link_1"  file="robotiq_3f/link_1_vis.stl"/>
+    <mesh name="gripper_link_2"  file="robotiq_3f/link_2_vis.stl"/>
+    <mesh name="gripper_link_3"  file="robotiq_3f/link_3_vis.stl"/>
+    <mesh name="gripper_palm"    file="robotiq_3f/palm_vis.stl"/>
+  </asset>
+
+  <!-- ========================================================= -->
+  <!-- Visualization                                             -->
+  <!-- ========================================================= -->
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6"
+               ambient="0.3 0.3 0.3"
+               specular="0 0 0"/>
+    <global azimuth="-130" elevation="-20"/>
+  </visual>
+
+  <!-- ========================================================= -->
+  <!-- Environment Assets                                        -->
+  <!-- ========================================================= -->
+  <asset>
+    <texture type="skybox"
+             builtin="gradient"
+             rgb1="1 1 1"
+             rgb2="1 1 1"
+             width="512"
+             height="3072"/>
+    <texture type="2d"
+             name="groundplane"
+             builtin="checker"
+             mark="edge"
+             rgb1="1 1 1"
+             rgb2="1 1 1"
+             markrgb="0 0 0"
+             width="300"
+             height="300"/>
+    <material name="groundplane"
+              texture="groundplane"
+              texuniform="true"
+              texrepeat="5 5"
+              reflectance="0.2"/>
+  </asset>
+
+  <!-- ========================================================= -->
+  <!-- World Body                                                -->
+  <!-- ========================================================= -->
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <geom type="mesh" mesh="base_link"/>
+    <body name="robot" pos="0 0 0">
+      <body name="link_1" pos="0 0 0.33">
+        <!-- <inertial pos="0.058962 0.24363 -0.018725" quat="0.154737 0.465754 0.464201 0.737324" mass="10.06" diaginertia="1.20179 1.05429 0.8459"/> -->
+        <joint name="joint_1" pos="0 0 0" axis="0 0 1" class="joint1"/>
+        <geom type="mesh" rgba="0.96 0.76 0.13 1" mesh="link_1"/>
+        <body name="link_2" pos="0.05 0 0">
+          <!-- <inertial pos="3.5083e-05 0.39008 0.15036" quat="0.490897 0.516951 -0.510135 0.48119" mass="6.11" diaginertia="1.83109 1.7745 0.150015"/> -->
+          <joint name="joint_2" pos="0 0 0" axis="0 1 0" class="joint2"/>
+          <geom type="mesh" rgba="0.96 0.76 0.13 1" mesh="link_2"/>
+          <body name="link_3" pos="0 0 0.44">
+            <!-- <inertial pos="0.086423 0.14427 -0.035793" quat="0.632481 0.663767 0.0137265 -0.398989" mass="7.69" diaginertia="0.776076 0.668163 0.43752"/> -->
+            <joint name="joint_3" pos="0 0 0" axis="0 -1 0" class="joint3"/>
+            <geom type="mesh" rgba="0.96 0.76 0.13 1" mesh="link_3"/>
+            <body name="link_4" pos="0 0 0.035">
+              <!-- <inertial pos="0.37337 0.00033491 0.012656" quat="0.509567 0.48893 0.476159 0.523985" mass="2.06" diaginertia="0.480722 0.478635 0.0159838"/> -->
+              <joint name="joint_4" pos="0 0 0" axis="-1 0 0" class="joint4"/>
+              <geom type="mesh" rgba="0.96 0.76 0.13 1" mesh="link_4"/>
+              <body name="link_5" pos="0.42 0 0">
+                <!-- <inertial pos="0.062818 3.3289e-05 0.0048991" quat="0.680253 -0.192363 -0.192195 0.680671" mass="0.70" diaginertia="0.021382 0.0161834 0.0124506"/> -->
+                <joint name="joint_5" pos="0 0 0" axis="0 -1 0" class="joint5"/>
+                <geom type="mesh" rgba="0.96 0.76 0.13 1" mesh="link_5"/>
+
+                <body name="link_6" pos="0.08 0 0">
+                  <!-- <inertial pos="0.0635759 -4.83828e-05 -0.000634631" quat="-0.00461342 0.670431 0.0020116 0.741955" mass="0.38" diaginertia="0.00776893 0.00768384 0.00720519"/> -->
+                  <joint name="joint_6" pos="0 0 0" axis="-1 0 0" class="joint6"/>
+                  <geom type="mesh" rgba="0.15 0.15 0.15 1" mesh="link_6"/>
+                  
+                  <body name="fts" pos="0.02185 0 0" quat="0.707107 0 0.707107 0">
+                    <geom size="0.035 0.0205" type="cylinder" rgba="0.2 0.2 0.2 1"/>
+                    
+                    <body name="palm_link" pos="0 0 0.047" quat="0.707107 0.707107 0 0">
+                      <geom type="mesh" mesh="gripper_palm" rgba="0.2 0.2 0.2 1"/>
+                      
+                      <body name="finger_A_link_0" pos="0.0455 0.0415 0" quat="0 0 1 0">
+
+                        <!-- <inertial pos="0 0 0" quat="0.707145 0.707067 -0.0011614 -0.000375819" mass="0.05" 
+                          diaginertia="0.00393333 0.00393333 0.00393333"/> -->
+
+                        <joint name="finger_A_joint_0" pos="0 0 0" axis="1 0 0" range="0 0" actuatorfrcrange="-100 100" damping="1000"/>
+                        <geom pos="0 0 0" quat="-2.59734e-06 0.707108 0.707105 2.59735e-06" type="mesh" mesh="gripper_link_0" contype="0" conaffinity="0"/>
+                        
+                        <body name="finger_A_link_1" pos="0 0 0" quat="0 0.707107 0.707107 0">
+                          <!-- <inertial pos="0 0 0" quat="0.478816 0.503501 0.521199 0.495554" mass="0.15" diaginertia="0.00567167 0.00567167 0.00567167"/> -->
+                          
+                          <joint name="finger_A_joint_1" pos="0 0 0" axis="0 0 1" range="0 1.2217" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                          <geom pos="0.05 -0.028 0" quat="0.97237 0 0 -0.233446" type="mesh" mesh="gripper_link_1" contype="0" conaffinity="0" rgba="0.2 0.2 0.2 1"/>
+                          
+                          <body name="finger_A_link_2" pos="0.05 -0.028 0" quat="0.97237 0 0 -0.233446">
+                            <!-- <inertial pos="0 0 0" quat="0.478816 0.503501 0.521199 0.495554" mass="0.15" diaginertia="0.00567167 0.00567167 0.00567167"/> -->
+                            
+                            <joint name="finger_A_joint_2" pos="0 0 0" axis="0 0 1" range="0 1.5708" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                            <geom pos="0.039 0 0.0075" type="mesh" mesh="gripper_link_2" />
+                            
+                            <body name="finger_A_link_3" pos="0.039 0 0">
+                              <!-- <inertial pos="0 0 0" quat="0.614353 0.390886 -0.585309 0.35664" mass="0.05" diaginertia="0.00163315 0.00136097 0.000726883"/> -->
+                              
+                              <joint name="finger_A_joint_3" pos="0 0 0" axis="0 0 1" range="-0.90757 0.80285" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                              <geom quat="0.97237 0 0 0.233446" type="mesh" mesh="gripper_link_3" rgba="0.2 0.2 0.2 1"/>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                      
+                      <body name="finger_B_link_0" pos="-0.045 0.043 -0.036" quat="1 0 0 0">
+                        <!-- <inertial pos="0 0 0" quat="0.707145 0.707067 -0.0011614 -0.000375819" mass="0.05" diaginertia="0.00393333 0.00393333 0.00393333"/> -->
+                        
+                        <joint name="finger_B_joint_0" pos="0 -0.022 0" axis="1 0 0" range="-0.27925 0.17453" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                        <geom pos="0 0 0" quat="0 0.707107 0.707107 0" type="mesh" mesh="gripper_link_0" contype="0" conaffinity="0"/>
+                    
+                        <body name="finger_B_link_1" pos="0 0 0" quat="0 0.707107 0.707107 0">
+                          <!-- <inertial pos="0 0 0" quat="0.478816 0.503501 0.521199 0.495554" mass="0.15" diaginertia="0.00567167 0.00567167 0.00567167"/> -->
+                          
+                          <joint name="finger_B_joint_1" pos="0 0 0" axis="0 0 1" range="0 1.2217" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                          <geom pos="0.05 -0.028 0" quat="0.97237 0 0 -0.233446" type="mesh" mesh="gripper_link_1" contype="0" conaffinity="0" rgba="0.2 0.2 0.2 1"/>
+                          <body name="finger_B_link_2" pos="0.05 -0.028 0" quat="0.97237 0 0 -0.233446">
+                            <!-- <inertial pos="0 0 0" quat="0.478816 0.503501 0.521199 0.495554" mass="0.15" diaginertia="0.00567167 0.00567167 0.00567167"/> -->
+                            <joint name="finger_B_joint_2" pos="0 0 0" axis="0 0 1" range="0 1.5708" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                            <geom pos="0.039 0 0.0075" type="mesh" mesh="gripper_link_2" />
+                            <body name="finger_B_link_3" pos="0.039 0 0">
+                              <!-- <inertial pos="0 0 0" quat="0.614353 0.390886 -0.585309 0.35664" mass="0.05" diaginertia="0.00163315 0.00136097 0.000726883"/> -->
+                              <joint name="finger_B_joint_3" pos="0 0 0" axis="0 0 1" range="-0.90757 0.80285" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                              <geom quat="0.97237 0 0 0.233446" type="mesh" mesh="gripper_link_3" rgba="0.2 0.2 0.2 1"/>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+
+                      <body name="finger_C_link_0" pos="-0.045 0.043 0.036" quat="1 0 0 0">
+                        <!-- <inertial pos="0 0 0" quat="0.707145 0.707067 -0.0011614 -0.000375819" mass="0.05" diaginertia="0.00393333 0.00393333 0.00393333"/> -->
+                        
+                        <joint name="finger_C_joint_0" pos="0 -0.022 0" axis="1 0 0" range="-0.17453 0.27925" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                        <geom pos="0 0 0" quat="-2.59734e-06 0.707108 0.707105 2.59735e-06" type="mesh" mesh="gripper_link_0" contype="0" conaffinity="0"/>
+                        <body name="finger_C_link_1" pos="0 0 0" quat="0 0.707107 0.707107 0">
+                          <!-- <inertial pos="0 0 0" quat="0.478816 0.503501 0.521199 0.495554" mass="0.15" diaginertia="0.00567167 0.00567167 0.00567167"/> -->
+                          <joint name="finger_C_joint_1" pos="0 0 0" axis="0 0 1" range="0 1.2217" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                          <geom pos="0.05 -0.028 0" quat="0.97237 0 0 -0.233446" type="mesh" mesh="gripper_link_1" contype="0" conaffinity="0" rgba="0.2 0.2 0.2 1"/>
+                          <body name="finger_C_link_2" pos="0.05 -0.028 0" quat="0.97237 0 0 -0.233446">
+                            <!-- <inertial pos="0 0 0" quat="0.478816 0.503501 0.521199 0.495554" mass="0.15" diaginertia="0.00567167 0.00567167 0.00567167"/> -->
+                            <joint name="finger_C_joint_2" pos="0 0 0" axis="0 0 1" range="0 1.5708" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                            <geom pos="0.039 0 0.0075" type="mesh" mesh="gripper_link_2" />
+                            <body name="finger_C_link_3" pos="0.039 0 0">
+                              <!-- <inertial pos="0 0 0" quat="0.614353 0.390886 -0.585309 0.35664" mass="0.05" diaginertia="0.00163315 0.00136097 0.000726883"/> -->
+                              <joint name="finger_C_joint_3" pos="0 0 0" axis="0 0 1" range="-0.90757 0.80285" actuatorfrcrange="-100 100" class="gripper_joint"/>
+                              <geom quat="0.97237 0 0 0.233446" type="mesh" mesh="gripper_link_3" rgba="0.2 0.2 0.2 1"/>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+    <camera name="cam" pos="0.5 0.8 1.2" xyaxes="-0.8 0.6 0 -0.36 -0.48 0.8"/>
+  </worldbody>
+
+  <!-- ========================================================= -->
+  <!-- Actuators                                                 -->
+  <!-- ========================================================= -->
+  <actuator>
+
+    <!-- LRMate200iD -->
+    <general name="joint_1" joint="joint_1" class="joint1"/>
+    <general name="joint_2" joint="joint_2" class="joint2"/>
+    <general name="joint_3" joint="joint_3" class="joint3"/>
+    <general name="joint_4" joint="joint_4" class="joint4"/>
+    <general name="joint_5" joint="joint_5" class="joint5"/>
+    <general name="joint_6" joint="joint_6" class="joint6"/>
+
+    <!-- Robotiq 3F -->
+    <position name="finger_A_joint_0" joint="finger_A_joint_0"/>
+    <position name="finger_A_joint_1" joint="finger_A_joint_1"/>
+    <position name="finger_A_joint_2" joint="finger_A_joint_2"/>
+    <position name="finger_A_joint_3" joint="finger_A_joint_3"/>
+
+    <position name="finger_B_joint_0" joint="finger_B_joint_0"/>
+    <position name="finger_B_joint_1" joint="finger_B_joint_1"/>
+    <position name="finger_B_joint_2" joint="finger_B_joint_2"/>
+    <position name="finger_B_joint_3" joint="finger_B_joint_3"/>
+
+    <position name="finger_C_joint_0" joint="finger_C_joint_0"/>
+    <position name="finger_C_joint_1" joint="finger_C_joint_1"/>
+    <position name="finger_C_joint_2" joint="finger_C_joint_2"/>
+    <position name="finger_C_joint_3" joint="finger_C_joint_3"/>
+
+  </actuator>
+
+</mujoco>

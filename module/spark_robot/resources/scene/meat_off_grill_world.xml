@@ -1,0 +1,25 @@
+<mujoco model="meat_off_grill_scene">
+    <asset>
+        <mesh name="chicken_mesh" file="../objects/rl_bench_mesh/meat_off_grill/chicken.obj"/>
+        <mesh name="grill_mesh"   file="../objects/rl_bench_mesh/meat_off_grill/grill.obj"/>
+        <mesh name="steak_mesh"   file="../objects/rl_bench_mesh/meat_off_grill/steak.obj"/>
+
+        <texture name="chicken_tex" type="2d" file="../objects/rl_bench_mesh/meat_off_grill/chicken_2180013.png"/>
+        <texture name="grill_tex"   type="2d" file="../objects/rl_bench_mesh/meat_off_grill/grill_2180010.png"/>
+        <texture name="steak_tex"   type="2d" file="../objects/rl_bench_mesh/meat_off_grill/steak_2180015.png"/>
+
+        <material name="chicken_mat" texture="chicken_tex"/>
+        <material name="grill_mat"   texture="grill_tex"/>
+        <material name="steak_mat"   texture="steak_tex"/>
+    </asset>
+
+    <worldbody>
+        <body pos="0.53 0.022 0.383" quat="0.703 -0.703 -0.079 0.079" name="grill">
+            <geom type="mesh" mesh="grill_mesh" material="grill_mat" pos="-0.28 0.03 -1.0"/>
+        </body>
+
+        <body pos="0.554 0.16 0.455" quat="0.698 0.071 -0.707 0.089" name="steak">
+            <geom type="mesh" mesh="steak_mesh" material="steak_mat" pos="-0.28 0.1 -1.02"/>
+        </body>
+    </worldbody>
+</mujoco>

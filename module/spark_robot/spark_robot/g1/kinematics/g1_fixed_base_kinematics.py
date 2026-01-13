@@ -102,7 +102,7 @@ class G1FixedBaseKinematics(RobotKinematics):
         self.init_data = np.zeros(self.reduced_fixed_base_model.nq)
 
     def _init_whole_body_kinematics(self):
-        print("Initializing G1FixedBaseKinematics")
+        print(f"Initializing {self.__class__.__name__}")
         self.robot = pin.RobotWrapper.BuildFromMJCF(
             os.path.join(SPARK_ROBOT_RESOURCE_DIR, self.kinematics_model_path)
         )
@@ -222,7 +222,8 @@ class G1FixedBaseKinematics(RobotKinematics):
         return frames
     
     def inverse_kinematics(self, T , current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
-        left_wrist, right_wrist = T[0], T[1]
+        
+        right_wrist, left_wrist  = T[0], T[1]
         if current_lr_arm_motor_q is not None:
             self.init_data = current_lr_arm_motor_q
         self.opti.set_initial(self.var_q, self.init_data)
@@ -250,7 +251,6 @@ class G1FixedBaseKinematics(RobotKinematics):
             sol_tauff = np.concatenate([sol_tauff, np.zeros(len(self.robot_cfg.DoFs) - sol_tauff.shape[0])], axis=0)
             
             info = {"sol_tauff": sol_tauff, "success": True}
-            
             return sol_q, info
         
         except Exception as e:
@@ -266,7 +266,7 @@ class G1FixedBaseKinematics(RobotKinematics):
             self.init_data = sol_q
 
             sol_tauff = pin.rnea(self.reduced_fixed_base_model, self.reduced_fixed_base_data, sol_q, v, np.zeros(self.reduced_fixed_base_model.nv))
-            import ipdb; ipdb.set_trace()
+            
             sol_tauff = np.concatenate([sol_tauff, np.zeros(len(self.robot_cfg.DoFs) - sol_tauff.shape[0])], axis=0)
 
             print(f"sol_q:{sol_q} \nmotorstate: \n{current_lr_arm_motor_q} \nleft_pose: \n{left_wrist} \nright_pose: \n{right_wrist}")

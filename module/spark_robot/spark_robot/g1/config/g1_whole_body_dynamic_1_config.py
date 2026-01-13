@@ -3,8 +3,6 @@ from spark_robot.base.base_robot_config import RobotConfig
 from spark_utils import Geometry, VizColor
 import numpy as np
 
-kNotUsedJoint = 29
-
 class G1WholeBodyDynamic1Config(RobotConfig):
     
     # ---------------------------------------------------------------------------- #
@@ -356,7 +354,7 @@ class G1WholeBodyDynamic1Config(RobotConfig):
 
     @property
     def num_state(self):
-        return len(self.DoFs)
+        return len(self.DoFs)  # exclude floating base
 
     def compose_state_from_dof(self, dof_pos, dof_vel):
         '''

@@ -877,206 +877,242 @@ class G1WholeBodyDynamic2Config(RobotConfig):
     #                                   Cartesian                                  #
     # ---------------------------------------------------------------------------- #
     
+    # class Frames(IntEnum):
+    #     left_hip_pitch_joint = 0
+    #     left_hip_roll_joint = 1
+    #     left_hip_yaw_joint = 2
+    #     left_knee_joint = 3
+    #     left_ankle_pitch_joint = 4
+    #     left_ankle_roll_joint = 5
+        
+    #     right_hip_pitch_joint = 6
+    #     right_hip_roll_joint = 7
+    #     right_hip_yaw_joint = 8
+    #     right_knee_joint = 9
+    #     right_ankle_pitch_joint = 10
+    #     right_ankle_roll_joint = 11
+        
+    #     waist_yaw_joint = 12
+    #     waist_roll_joint = 13
+    #     waist_pitch_joint = 14
+        
+    #     left_shoulder_pitch_joint = 15
+    #     left_shoulder_roll_joint = 16
+    #     left_shoulder_yaw_joint = 17
+    #     left_elbow_joint = 18
+    #     left_wrist_roll_joint = 19
+    #     left_wrist_pitch_joint = 20
+    #     left_wrist_yaw_joint = 21
+        
+    #     right_shoulder_pitch_joint = 22
+    #     right_shoulder_roll_joint = 23
+    #     right_shoulder_yaw_joint = 24
+    #     right_elbow_joint = 25
+    #     right_wrist_roll_joint = 26
+    #     right_wrist_pitch_joint = 27
+    #     right_wrist_yaw_joint = 28
+        
+    #     L_ee = 29
+    #     R_ee = 30
+        
+    #     torso_link_1 = 31
+    #     torso_link_2 = 32
+    #     torso_link_3 = 33
+        
+    #     pelvis_link_1 = 34
+    #     pelvis_link_2 = 35
+    #     pelvis_link_3 = 36
+    
     class Frames(IntEnum):
-        left_hip_pitch_joint = 0
-        left_hip_roll_joint = 1
-        left_hip_yaw_joint = 2
-        left_knee_joint = 3
-        left_ankle_pitch_joint = 4
-        left_ankle_roll_joint = 5
+        L_ee = 0
+        R_ee = 1
+        torso_link_3 = 2
         
-        right_hip_pitch_joint = 6
-        right_hip_roll_joint = 7
-        right_hip_yaw_joint = 8
-        right_knee_joint = 9
-        right_ankle_pitch_joint = 10
-        right_ankle_roll_joint = 11
+        # waist_yaw_joint = 0
+        # waist_roll_joint = 1
+        # waist_pitch_joint = 2
         
-        waist_yaw_joint = 12
-        waist_roll_joint = 13
-        waist_pitch_joint = 14
+        # left_shoulder_pitch_joint = 3
+        # left_shoulder_roll_joint = 4
+        # left_shoulder_yaw_joint = 5
+        # left_elbow_joint = 6
+        # left_wrist_roll_joint = 7
+        # left_wrist_pitch_joint = 8
+        # left_wrist_yaw_joint = 9
         
-        left_shoulder_pitch_joint = 15
-        left_shoulder_roll_joint = 16
-        left_shoulder_yaw_joint = 17
-        left_elbow_joint = 18
-        left_wrist_roll_joint = 19
-        left_wrist_pitch_joint = 20
-        left_wrist_yaw_joint = 21
+        # right_shoulder_pitch_joint = 10
+        # right_shoulder_roll_joint = 11
+        # right_shoulder_yaw_joint = 12
+        # right_elbow_joint = 13
+        # right_wrist_roll_joint = 14
+        # right_wrist_pitch_joint = 15
+        # right_wrist_yaw_joint = 16
         
-        right_shoulder_pitch_joint = 22
-        right_shoulder_roll_joint = 23
-        right_shoulder_yaw_joint = 24
-        right_elbow_joint = 25
-        right_wrist_roll_joint = 26
-        right_wrist_pitch_joint = 27
-        right_wrist_yaw_joint = 28
+        # L_ee = 17
+        # R_ee = 18
         
-        L_ee = 29
-        R_ee = 30
+        # torso_link_1 = 19
+        # torso_link_2 = 20
+        # torso_link_3 = 21
         
-        torso_link_1 = 31
-        torso_link_2 = 32
-        torso_link_3 = 33
-        
-        pelvis_link_1 = 34
-        pelvis_link_2 = 35
-        pelvis_link_3 = 36
+        # pelvis_link_1 = 22
+        # pelvis_link_2 = 23
+        # pelvis_link_3 = 24
     
     # ---------------------------------------------------------------------------- #
     #                                   Collision                                  #
     # ---------------------------------------------------------------------------- #
     
     CollisionVol = {
-        Frames.left_hip_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_hip_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_hip_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_knee_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_ankle_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_ankle_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_hip_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_hip_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_hip_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_knee_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_ankle_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_ankle_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
         
-        Frames.right_hip_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_hip_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_hip_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_knee_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_ankle_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_ankle_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_hip_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_hip_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_hip_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_knee_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_ankle_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_ankle_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
         
-        Frames.waist_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.waist_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.waist_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.waist_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.waist_roll_joint : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.waist_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
         
-        Frames.left_shoulder_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_shoulder_roll_joint : Geometry(type='sphere', radius=0.06, color=VizColor.collision_volume),
-        Frames.left_shoulder_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_elbow_joint         : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_wrist_roll_joint    : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_wrist_pitch_joint   : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.left_wrist_yaw_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_shoulder_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_shoulder_roll_joint : Geometry(type='sphere', radius=0.06, color=VizColor.collision_volume),
+        # Frames.left_shoulder_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_elbow_joint         : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_wrist_roll_joint    : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_wrist_pitch_joint   : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.left_wrist_yaw_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
         
-        Frames.right_shoulder_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_shoulder_roll_joint : Geometry(type='sphere', radius=0.06, color=VizColor.collision_volume),
-        Frames.right_shoulder_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_elbow_joint         : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_wrist_roll_joint    : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_wrist_pitch_joint   : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.right_wrist_yaw_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_shoulder_pitch_joint: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_shoulder_roll_joint : Geometry(type='sphere', radius=0.06, color=VizColor.collision_volume),
+        # Frames.right_shoulder_yaw_joint  : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_elbow_joint         : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_wrist_roll_joint    : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_wrist_pitch_joint   : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.right_wrist_yaw_joint     : Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
         
         Frames.L_ee: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
         Frames.R_ee: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
 
-        Frames.torso_link_1: Geometry(type='sphere', radius=0.10, color=VizColor.collision_volume),
-        Frames.torso_link_2: Geometry(type='sphere', radius=0.10, color=VizColor.collision_volume),
+        # Frames.torso_link_1: Geometry(type='sphere', radius=0.10, color=VizColor.collision_volume),
+        # Frames.torso_link_2: Geometry(type='sphere', radius=0.10, color=VizColor.collision_volume),
         Frames.torso_link_3: Geometry(type='sphere', radius=0.08, color=VizColor.collision_volume),
         
-        Frames.pelvis_link_1: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.pelvis_link_2: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
-        Frames.pelvis_link_3: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume)
+        # Frames.pelvis_link_1: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.pelvis_link_2: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume),
+        # Frames.pelvis_link_3: Geometry(type='sphere', radius=0.05, color=VizColor.collision_volume)
     }
 
     # Pairs of adjacent joints to be ignored in collision checking
     AdjacentCollisionVolPairs = [
-        [Frames.waist_yaw_joint, Frames.waist_roll_joint],
-        [Frames.waist_yaw_joint, Frames.waist_pitch_joint],
-        [Frames.waist_yaw_joint, Frames.torso_link_1],
-        [Frames.waist_roll_joint, Frames.waist_pitch_joint],
-        [Frames.waist_roll_joint, Frames.torso_link_1],
-        [Frames.waist_pitch_joint, Frames.torso_link_1],
-        [Frames.torso_link_1, Frames.torso_link_2],
-        [Frames.torso_link_1, Frames.torso_link_3],
-        [Frames.torso_link_2, Frames.torso_link_3],
+        # [Frames.waist_yaw_joint, Frames.waist_roll_joint],
+        # [Frames.waist_yaw_joint, Frames.waist_pitch_joint],
+        # [Frames.waist_yaw_joint, Frames.torso_link_1],
+        # [Frames.waist_roll_joint, Frames.waist_pitch_joint],
+        # [Frames.waist_roll_joint, Frames.torso_link_1],
+        # [Frames.waist_pitch_joint, Frames.torso_link_1],
+        # [Frames.torso_link_1, Frames.torso_link_2],
+        # [Frames.torso_link_1, Frames.torso_link_3],
+        # [Frames.torso_link_2, Frames.torso_link_3],
 
-        [Frames.left_shoulder_pitch_joint, Frames.torso_link_1],
-        [Frames.left_shoulder_pitch_joint, Frames.torso_link_2],
-        [Frames.left_shoulder_roll_joint, Frames.torso_link_1],
-        [Frames.left_shoulder_roll_joint, Frames.torso_link_2],
-        [Frames.left_shoulder_pitch_joint, Frames.left_shoulder_roll_joint],
-        [Frames.left_shoulder_pitch_joint, Frames.left_shoulder_yaw_joint],
-        [Frames.left_shoulder_roll_joint, Frames.left_shoulder_yaw_joint],
-        [Frames.left_shoulder_yaw_joint, Frames.left_elbow_joint],
-        [Frames.left_elbow_joint, Frames.left_wrist_roll_joint],
-        [Frames.left_wrist_roll_joint, Frames.left_wrist_pitch_joint],
-        [Frames.left_wrist_roll_joint, Frames.left_wrist_yaw_joint],
-        [Frames.left_wrist_roll_joint, Frames.L_ee],
-        [Frames.left_wrist_pitch_joint, Frames.left_wrist_yaw_joint],
-        [Frames.left_wrist_pitch_joint, Frames.L_ee],
-        [Frames.left_wrist_yaw_joint, Frames.L_ee],
+        # [Frames.left_shoulder_pitch_joint, Frames.torso_link_1],
+        # [Frames.left_shoulder_pitch_joint, Frames.torso_link_2],
+        # [Frames.left_shoulder_roll_joint, Frames.torso_link_1],
+        # [Frames.left_shoulder_roll_joint, Frames.torso_link_2],
+        # [Frames.left_shoulder_pitch_joint, Frames.left_shoulder_roll_joint],
+        # [Frames.left_shoulder_pitch_joint, Frames.left_shoulder_yaw_joint],
+        # [Frames.left_shoulder_roll_joint, Frames.left_shoulder_yaw_joint],
+        # [Frames.left_shoulder_yaw_joint, Frames.left_elbow_joint],
+        # [Frames.left_elbow_joint, Frames.left_wrist_roll_joint],
+        # [Frames.left_wrist_roll_joint, Frames.left_wrist_pitch_joint],
+        # [Frames.left_wrist_roll_joint, Frames.left_wrist_yaw_joint],
+        # [Frames.left_wrist_roll_joint, Frames.L_ee],
+        # [Frames.left_wrist_pitch_joint, Frames.left_wrist_yaw_joint],
+        # [Frames.left_wrist_pitch_joint, Frames.L_ee],
+        # [Frames.left_wrist_yaw_joint, Frames.L_ee],
 
-        [Frames.right_shoulder_pitch_joint, Frames.torso_link_1],
-        [Frames.right_shoulder_pitch_joint, Frames.torso_link_2],
-        [Frames.right_shoulder_roll_joint, Frames.torso_link_1],
-        [Frames.right_shoulder_roll_joint, Frames.torso_link_2],
-        [Frames.right_shoulder_pitch_joint, Frames.right_shoulder_roll_joint],
-        [Frames.right_shoulder_pitch_joint, Frames.right_shoulder_yaw_joint],
-        [Frames.right_shoulder_roll_joint, Frames.right_shoulder_yaw_joint],
-        [Frames.right_shoulder_yaw_joint, Frames.right_elbow_joint],
-        [Frames.right_elbow_joint, Frames.right_wrist_roll_joint],
-        [Frames.right_wrist_roll_joint, Frames.right_wrist_pitch_joint],
-        [Frames.right_wrist_roll_joint, Frames.right_wrist_yaw_joint],
-        [Frames.right_wrist_roll_joint, Frames.R_ee],
-        [Frames.right_wrist_pitch_joint, Frames.right_wrist_yaw_joint],
-        [Frames.right_wrist_pitch_joint, Frames.R_ee],
-        [Frames.right_wrist_yaw_joint, Frames.R_ee],
+        # [Frames.right_shoulder_pitch_joint, Frames.torso_link_1],
+        # [Frames.right_shoulder_pitch_joint, Frames.torso_link_2],
+        # [Frames.right_shoulder_roll_joint, Frames.torso_link_1],
+        # [Frames.right_shoulder_roll_joint, Frames.torso_link_2],
+        # [Frames.right_shoulder_pitch_joint, Frames.right_shoulder_roll_joint],
+        # [Frames.right_shoulder_pitch_joint, Frames.right_shoulder_yaw_joint],
+        # [Frames.right_shoulder_roll_joint, Frames.right_shoulder_yaw_joint],
+        # [Frames.right_shoulder_yaw_joint, Frames.right_elbow_joint],
+        # [Frames.right_elbow_joint, Frames.right_wrist_roll_joint],
+        # [Frames.right_wrist_roll_joint, Frames.right_wrist_pitch_joint],
+        # [Frames.right_wrist_roll_joint, Frames.right_wrist_yaw_joint],
+        # [Frames.right_wrist_roll_joint, Frames.R_ee],
+        # [Frames.right_wrist_pitch_joint, Frames.right_wrist_yaw_joint],
+        # [Frames.right_wrist_pitch_joint, Frames.R_ee],
+        # [Frames.right_wrist_yaw_joint, Frames.R_ee],
     ]
 
     SelfCollisionVolIgnored = [
-        Frames.left_hip_pitch_joint,
-        Frames.left_hip_roll_joint,
-        Frames.left_hip_yaw_joint,
-        Frames.left_knee_joint,
-        Frames.left_ankle_pitch_joint,
-        Frames.left_ankle_roll_joint,
+        # Frames.left_hip_pitch_joint,
+        # Frames.left_hip_roll_joint,
+        # Frames.left_hip_yaw_joint,
+        # Frames.left_knee_joint,
+        # Frames.left_ankle_pitch_joint,
+        # Frames.left_ankle_roll_joint,
         
-        Frames.right_hip_pitch_joint,
-        Frames.right_hip_roll_joint,
-        Frames.right_hip_yaw_joint,
-        Frames.right_knee_joint,
-        Frames.right_ankle_pitch_joint,
-        Frames.right_ankle_roll_joint,
+        # Frames.right_hip_pitch_joint,
+        # Frames.right_hip_roll_joint,
+        # Frames.right_hip_yaw_joint,
+        # Frames.right_knee_joint,
+        # Frames.right_ankle_pitch_joint,
+        # Frames.right_ankle_roll_joint,
         
-        Frames.waist_yaw_joint,
-        Frames.waist_roll_joint,
-        Frames.waist_pitch_joint,
+        # Frames.waist_yaw_joint,
+        # Frames.waist_roll_joint,
+        # Frames.waist_pitch_joint,
         
-        Frames.left_shoulder_pitch_joint,
-        Frames.left_shoulder_yaw_joint,
-        Frames.left_wrist_roll_joint,
-        Frames.left_wrist_pitch_joint,
-        Frames.left_wrist_yaw_joint,
+        # Frames.left_shoulder_pitch_joint,
+        # Frames.left_shoulder_yaw_joint,
+        # Frames.left_wrist_roll_joint,
+        # Frames.left_wrist_pitch_joint,
+        # Frames.left_wrist_yaw_joint,
         
-        Frames.right_shoulder_pitch_joint,
-        Frames.right_shoulder_yaw_joint,
-        Frames.right_wrist_roll_joint,
-        Frames.right_wrist_pitch_joint,
-        Frames.right_wrist_yaw_joint,
+        # Frames.right_shoulder_pitch_joint,
+        # Frames.right_shoulder_yaw_joint,
+        # Frames.right_wrist_roll_joint,
+        # Frames.right_wrist_pitch_joint,
+        # Frames.right_wrist_yaw_joint,
         
-        Frames.pelvis_link_1,
-        Frames.pelvis_link_2,
-        Frames.pelvis_link_3,
+        # Frames.pelvis_link_1,
+        # Frames.pelvis_link_2,
+        # Frames.pelvis_link_3,
     ]
     
     EnvCollisionVolIgnored = [
-        Frames.left_hip_pitch_joint,
-        Frames.left_hip_roll_joint,
-        Frames.left_hip_yaw_joint,
-        Frames.left_knee_joint,
-        Frames.left_ankle_pitch_joint,
-        Frames.left_ankle_roll_joint,
+        # Frames.left_hip_pitch_joint,
+        # Frames.left_hip_roll_joint,
+        # Frames.left_hip_yaw_joint,
+        # Frames.left_knee_joint,
+        # Frames.left_ankle_pitch_joint,
+        # Frames.left_ankle_roll_joint,
         
-        Frames.right_hip_pitch_joint,
-        Frames.right_hip_roll_joint,
-        Frames.right_hip_yaw_joint,
-        Frames.right_knee_joint,
-        Frames.right_ankle_pitch_joint,
-        Frames.right_ankle_roll_joint,
+        # Frames.right_hip_pitch_joint,
+        # Frames.right_hip_roll_joint,
+        # Frames.right_hip_yaw_joint,
+        # Frames.right_knee_joint,
+        # Frames.right_ankle_pitch_joint,
+        # Frames.right_ankle_roll_joint,
         
-        Frames.waist_yaw_joint,
-        Frames.waist_roll_joint,
-        Frames.waist_pitch_joint,
+        # Frames.waist_yaw_joint,
+        # Frames.waist_roll_joint,
+        # Frames.waist_pitch_joint,
         
-        Frames.pelvis_link_1,
-        Frames.pelvis_link_2,
-        Frames.pelvis_link_3,
+        # Frames.pelvis_link_1,
+        # Frames.pelvis_link_2,
+        # Frames.pelvis_link_3,
     ]
 
     VisualizeSafeZone = [

@@ -1,7 +1,7 @@
 from spark_pipeline.base.base_pipeline import BasePipeline
 from spark_utils import VizColor, compute_phi_and_extract_best
 import numpy as np
-from spark_safe.safe_algo import BaseSafetyIndex
+from spark_policy.safe.safe_algo import BaseSafetyIndex
 from spark_robot import RobotConfig, RobotKinematics
 import matplotlib.pyplot as plt
 from collections import deque
@@ -36,7 +36,7 @@ def render_critical_pairs(line_render_fn, frame_list_1, frame_list_2, mat, thres
     return indices_of_interest
 
 def render_value_based_debug_info(
-    render_sphere_fn, render_line_fn, render_box_fn, render_surface_fn,
+    render_sphere_fn, render_line_fn, render_box_fn, render_surface_fn, render_coordinate_frame_fn,
     agent_feedback, task_info, action_info,
     safety_index: BaseSafetyIndex,
     robot_frames, 
@@ -55,20 +55,25 @@ def render_value_based_debug_info(
     goal_left_frame_base = goal_teleop.get("left", None) if goal_teleop is not None else None
     goal_right_frame_base = goal_teleop.get("right", None) if goal_teleop is not None else None
     goal_base_frame_world = goal_teleop.get("base", None) if goal_teleop is not None else None
-
     if goal_base_frame_world is not None:
         goal_list.append(goal_base_frame_world)
         goal_sizes.append(task_info.get("base_goal_size", 0.05))
     
-    if goal_left_frame_base is not None and goal_right_frame_base is not None:
-        goal_left_frame_world = goal_left_frame_base
+    if  goal_right_frame_base is not None:
         goal_right_frame_world = goal_right_frame_base
-        goal_list += [goal_left_frame_world, goal_right_frame_world]
-        goal_sizes += [task_info.get("arm_goal_size", 0.05), task_info.get("arm_goal_size", 0.05)]
-
+        goal_list += [goal_right_frame_world]
+        goal_sizes += [task_info.get("arm_goal_size", 0.05)]
+    if goal_left_frame_base is not None:
+        goal_left_frame_world = goal_left_frame_base
+        goal_list += [goal_left_frame_world]
+        goal_sizes += [task_info.get("arm_goal_size", 0.05)]
     for goal, goal_size in zip(goal_list, goal_sizes):
         if goal is not None and goal_size is not None:
-            render_sphere_fn(goal[:3,3], goal[:3,:3], goal_size*np.ones(3), VizColor.goal)
+            if goal.ndim == 3:
+                for g in goal:
+                    render_sphere_fn(g[:3, 3], g[:3, :3], goal_size*np.ones(3), VizColor.goal)
+            else:
+                render_sphere_fn(goal[:3, 3], goal[:3, :3], goal_size*np.ones(3), VizColor.goal)
             
     if "zmp" in action_info.keys():
         zmp = action_info["zmp"]
@@ -115,7 +120,6 @@ def render_value_based_debug_info(
         infeasible_pairs_self = render_critical_pairs(render_line_fn, robot_frames, robot_frames, violation_mat_self, None, active_self_collision_mask, 0.05, VizColor.not_a_number)
 
     # ----------------------------- collision volumes ---------------------------- #
-
     # render robot collision volumes
     for frame_id, frame_world in enumerate(robot_frames):
         
@@ -144,7 +148,11 @@ def render_value_based_debug_info(
                           geom.color)
         else:
             raise ValueError(f'Unknown geometry type: {geom.type}')
-    
+    for pair in active_pairs_unsafe_self:
+        fname1 = robot_cfg.Frames(pair[0]).name
+        fname2 = robot_cfg.Frames(pair[1]).name
+        print(f'Unsafe self-collision between {fname1} and {fname2}')
+        print(np.linalg.norm(robot_frames[pair[0]][:3,3] - robot_frames[pair[1]][:3,3]) - robot_cfg.CollisionVol[pair[0]].attributes["radius"] - robot_cfg.CollisionVol[pair[1]].attributes["radius"])
     # render obstacles
     for obstacle_id_task, (frame_world, geom) in enumerate(zip(obstacle_frames, obstacle_geoms)):
         
@@ -210,4 +218,17 @@ def render_value_based_debug_info(
                 render_surface_fn(transformed_verts[faces], VizColor.safe_zone)
             except:
                 print("safe zone is not computable")
-    
+
+    if "coordinate_frames_to_render" in task_info:
+        for frame in task_info["coordinate_frames_to_render"]:
+            render_coordinate_frame_fn(frame, size=0.1)
+    try:
+        R_ee = robot_frames[robot_cfg.Frames.R_ee]
+        render_coordinate_frame_fn(R_ee, size=0.1)
+    except:
+        pass
+    try:
+        L_ee = robot_frames[robot_cfg.Frames.L_ee]
+        render_coordinate_frame_fn(L_ee, size=0.1)
+    except:
+        pass

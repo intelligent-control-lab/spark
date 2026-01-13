@@ -3,7 +3,6 @@ from enum import IntEnum, Enum
 import inspect
 from spark_algo import SparkAlgoConfig
 from spark_env import SparkEnvConfig
-from spark_safe.safe_controller import SafeControllerConfig
 
 class BasePipelineConfig:
     

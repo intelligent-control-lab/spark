@@ -1,0 +1,4 @@
+<mujoco model="scene">
+  <include file="../lrmate200id/lrmate200id_3f_single.xml"/>
+  <!-- <include file="../scene/meat_off_grill_world.xml"/> -->
+</mujoco>

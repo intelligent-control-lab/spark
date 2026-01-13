@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from spark_robot.base.base_robot_config import RobotConfig
+import json
+import os
+from spark_robot import SPARK_ROBOT_ROOT
 
 class RobotKinematics(ABC):
     """
@@ -58,3 +61,26 @@ class RobotKinematics(ABC):
         
         """
         pass
+
+    def load_collision_spheres(self):
+        """
+        Returns:
+            Dict[str, List[Dict]] mapping link_name -> list of spheres
+        """
+        path = os.path.join(SPARK_ROBOT_ROOT, "spark_robot", self.robot_cfg.collision_spheres_json_path)
+        if path is None:
+            return {}
+
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        out = {}
+        for key, levels in data.items():
+            link = key.split("::")[0]
+            finest = max(levels.keys(), key=lambda x: int(x))
+            spheres = []
+            for cluster in levels[finest].values():
+                spheres.extend(cluster.get("spheres", []))
+            out[link] = spheres
+
+        return out

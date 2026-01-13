@@ -4,7 +4,7 @@ from mujoco.glfw import glfw
 from spark_agent.simulation.simulation_agent import SimulationAgent
 from spark_robot import RobotConfig
 from spark_utils import Geometry, VizColor
-
+from scipy.spatial.transform import Rotation as R
 
 class MujocoAgent(SimulationAgent):
     """
@@ -97,7 +97,8 @@ class MujocoAgent(SimulationAgent):
         """
         if self.debug_object is None:
             self.debug_object = self.obstacle_debug_frame[self.obstacle_debug_selected]  # Get the selected obstacle geometry
-            
+        if len(self.obstacle_debug_geom) == 0:
+            return  # No obstacles to manipulate
         # Handle movement keys for the selected obstacle
         if key == glfw.KEY_RIGHT:  # Move +Y
             self.debug_object[1, 3] += self.manual_step_size
@@ -368,6 +369,22 @@ class MujocoAgent(SimulationAgent):
                 rgba=np.array(color),
             )
             self.viewer.user_scn.ngeom += 1
+
+    def render_coordinate_frame(self, frame, size=0.1):
+        """Render a coordinate frame at the given position and orientation."""
+        
+        origin = frame[:3, 3]
+        x_axis = frame[:3, 0] * size
+        y_axis = frame[:3, 1] * size
+        z_axis = frame[:3, 2] * size
+
+        # Render X axis (red)
+        self.render_line_segment(origin, origin + x_axis, radius=0.001, color=VizColor.x_axis)
+        # Render Y axis (green)
+        self.render_line_segment(origin, origin + y_axis, radius=0.001, color=VizColor.y_axis)
+        # Render Z axis (blue)
+        self.render_line_segment(origin, origin + z_axis, radius=0.001, color=VizColor.z_axis)
+
 
     def _render_obstacle_debug(self):
         """Render obstacles for debugging purposes."""

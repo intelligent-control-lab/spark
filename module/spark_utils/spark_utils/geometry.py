@@ -30,6 +30,12 @@ class VizColor:
     # nan
     not_a_number = [255/255, 0/255, 0/255, 0.4] # red
 
+    # coordinate frame axes
+    x_axis = [1, 0, 0, 1]
+    y_axis = [0, 1, 0, 1]
+    z_axis = [0, 0, 1, 1]
+
+
 class Geometry:
     def __init__(self, type, **kwargs):
         self.type = type

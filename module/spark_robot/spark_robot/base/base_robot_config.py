@@ -22,6 +22,14 @@ class RobotConfig(ABC):
         
         """ Initializes all member classes recursively. Ignores all names starting with '__' (built-in methods)."""
         self.init_member_classes(self)
+        self._post_init()
+
+    def _post_init(self):
+        """
+        Optional hook for subclasses.
+        Called after nested config classes are instantiated.
+        """
+        pass
     
     # taken from git@github.com:leggedrobotics/legged_gym.git
     @staticmethod

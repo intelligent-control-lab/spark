@@ -50,7 +50,7 @@
     <global azimuth="-130" elevation="-20"/>
   </visual>
 
-   <asset>
+  <asset>
     <texture type="skybox" builtin="gradient" rgb1="1 1 1" rgb2="1 1 1" width="512" height="3072"/>
     <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="1 1 1" rgb2="1 1 1"
       markrgb="0 0 0" width="300" height="300"/>

@@ -18,12 +18,12 @@ def initialize_class(class_cfg, **kwargs):
     
     import spark_task
     import spark_policy
-    import spark_safe.safe_controller as safe_controller
-    import spark_safe.safe_algo as safe_algo
+    # import spark_policy.safe.safe_controller as safe_controller
+    # import spark_policy.safe.safe_algo as safe_algo
     import spark_agent
     import spark_robot
 
-    for module in [spark_policy, safe_controller, spark_agent, spark_robot, spark_task, safe_algo]:
+    for module in [spark_policy, spark_agent, spark_robot, spark_task]:
         
         if hasattr(module, class_name):
             class_name = getattr(module, class_name)

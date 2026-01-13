@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import IntEnum, Enum
 import inspect
-from spark_safe.safe_controller import SafeControllerConfig
+from spark_policy.safe.safe_controller import SafeControllerConfig
 
 class SparkAlgoConfig:
     
@@ -36,9 +36,9 @@ class SparkAlgoConfig:
                 # Recursively init members of the attribute
                 SparkAlgoConfig.init_member_classes(i_var)
     
-    class policy:
-        class_name = None
+    # class policy:
+    #     class_name = None
 
-    class safe_controller( SafeControllerConfig ):
+    # class safe_controller( SafeControllerConfig ):
         
-        pass
+    #     pass

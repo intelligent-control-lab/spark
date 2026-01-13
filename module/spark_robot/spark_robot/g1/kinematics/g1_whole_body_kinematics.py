@@ -13,7 +13,7 @@ class G1WholeBodyKinematics(G1FixedBaseKinematics):
         super().__init__(robot_cfg, **kwargs)
             
     def _init_whole_body_kinematics(self):
-        print("Initializing G1WholeBodyKinematics")
+        print(f"Initializing {self.__class__.__name__}")
         self.kinematics_model_path = 'g1/g1_29dof_whole_body_fixed.xml'
         self.robot = pin.RobotWrapper.BuildFromMJCF(
             os.path.join(SPARK_ROBOT_RESOURCE_DIR, self.kinematics_model_path),
@@ -23,15 +23,14 @@ class G1WholeBodyKinematics(G1FixedBaseKinematics):
         self.model = self.robot.model
         self.add_extra_frames(self.model)
         self.data = pin.Data(self.model)
-        
         self.pin_frame_dict = {}
         for frame in self.robot_cfg.Frames:
             for j in range(self.model.nframes):
                 pin_frame = self.model.frames[j]
                 pin_frame_id = self.model.getFrameId(pin_frame.name)
                 if frame.name == pin_frame.name:
-                    self.pin_frame_dict[frame] = pin_frame_id 
-                    print(f"Frame {pin_frame.name} has ID {self.pin_frame_dict[frame]}")
+                    self.pin_frame_dict[frame.name] = pin_frame_id 
+                    print(f"Frame {pin_frame.name} has ID {self.pin_frame_dict[frame.name]}")
 
         for j in range(self.model.nframes):
             pin_frame = self.model.frames[j]
@@ -56,6 +55,12 @@ class G1WholeBodyKinematics(G1FixedBaseKinematics):
             pin.computeJointJacobiansTimeVariation(self.model, self.data, pin_dof_pos, dof_vel)
         return
     
+    def inverse_kinematics(self, T , current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
+        ik_dof_pos = np.zeros(self.num_dof)
+        fixed_base_ik, info = super().inverse_kinematics(T , current_lr_arm_motor_q, current_lr_arm_motor_dq)
+        ik_dof_pos[-17:] = fixed_base_ik
+        return ik_dof_pos, info
+        
     def forward_kinematics(self, dof):   
         # in robot base frame
         self.pre_computation(dof)
@@ -91,9 +96,6 @@ class G1WholeBodyKinematics(G1FixedBaseKinematics):
         
         Ag = self.robot.data.Ag.copy()  # Should now be filled
         dAg = (self.robot.data.dhg.vector[:, np.newaxis] - Ag @ a[:, np.newaxis]) @ np.linalg.pinv(v[:, np.newaxis])
-        # print("dhg: ", self.robot.data.dhg.vector[:3])
-        print("hg: ", np.round(self.robot.data.hg.vector[:3], 2))
-
         if (Ag @ a + dAg @ v - self.robot.data.dhg.vector).sum() >= 1e-6:
             print("Warning: Centroidal dynamics computation failed. Check the input values.")
             

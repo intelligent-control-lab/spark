@@ -89,7 +89,7 @@ class G1RightArmKinematics(G1FixedBaseKinematics):
         self.init_data = np.zeros(self.reduced_fixed_base_model.nq)
   
     def _init_whole_body_kinematics(self):
-        print("Initializing G1RightArmKinematics")
+        print(f"Initializing {self.__class__.__name__}")
         self.robot = pin.RobotWrapper.BuildFromMJCF(
             os.path.join(SPARK_ROBOT_RESOURCE_DIR, self.kinematics_model_path)
         )
@@ -112,7 +112,7 @@ class G1RightArmKinematics(G1FixedBaseKinematics):
                     self.pin_frame_dict[frame.name] = pin_frame_id 
             print(f"Frame {frame.name} has ID {self.pin_frame_dict[frame.name]}")
   
-    def add_extra_frames(self, model):    
+    def add_extra_frames(self, model):   
         model.addFrame(
             pin.Frame('R_ee',
                      model.getJointId('right_wrist_yaw_joint'),
@@ -122,7 +122,7 @@ class G1RightArmKinematics(G1FixedBaseKinematics):
         )
       
     def inverse_kinematics(self, T , current_lr_arm_motor_q = None, current_lr_arm_motor_dq = None):
-        right_wrist = T[1]
+        right_wrist = T[0]
         if current_lr_arm_motor_q is not None:
             self.init_data = current_lr_arm_motor_q
         self.opti.set_initial(self.var_q, self.init_data)
@@ -132,8 +132,6 @@ class G1RightArmKinematics(G1FixedBaseKinematics):
 
         try:
             sol = self.opti.solve()
-            # sol = self.opti.solve_limited()
-
             sol_q = self.opti.value(self.var_q)
             # self.smooth_filter.add_data(sol_q)
             # sol_q = self.smooth_filter.filtered_data
@@ -158,8 +156,6 @@ class G1RightArmKinematics(G1FixedBaseKinematics):
             print(f"ERROR in convergence, plotting debug info.{e}")
 
             sol_q = self.opti.debug.value(self.var_q)
-            # self.smooth_filter.add_data(sol_q)
-            # sol_q = self.smooth_filter.filtered_data
 
             if current_lr_arm_motor_dq is not None:
                 v = current_lr_arm_motor_dq * 0.0
@@ -169,7 +165,6 @@ class G1RightArmKinematics(G1FixedBaseKinematics):
             self.init_data = sol_q
 
             sol_tauff = pin.rnea(self.reduced_fixed_base_model, self.reduced_fixed_base_data, sol_q, v, np.zeros(self.reduced_fixed_base_model.nv))
-            import ipdb; ipdb.set_trace()
             sol_tauff = np.concatenate([sol_tauff, np.zeros(len(self.robot_cfg.DoFs) - sol_tauff.shape[0])], axis=0)
 
             print(f"sol_q:{sol_q} \nmotorstate: \n{current_lr_arm_motor_q} \nright_pose: \n{right_wrist}")
@@ -180,7 +175,7 @@ class G1RightArmKinematics(G1FixedBaseKinematics):
             # dof[:len(sol_q)] = current_lr_arm_motor_q
             dof[:len(sol_q)] = self.init_data
             
-            raise e
+            return dof, info
 
 if __name__ == "__main__":
     

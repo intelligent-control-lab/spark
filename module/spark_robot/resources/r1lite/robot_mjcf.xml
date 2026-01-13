@@ -1,0 +1,338 @@
+<mujoco model="mmp_revB_invconfig_upright_a1x">
+  <default>
+    <default class="robot">
+      <default class="motor">
+        <joint />
+        <motor />
+      </default>
+      <default class="visual">
+        <geom material="visualgeom" contype="0" conaffinity="0" group="2" />
+      </default>
+      <default class="collision">
+        <geom material="collision_material" condim="3" contype="0" conaffinity="1" priority="1" group="1" solref="0.005 1" solimp="0.99 0.999 1e-05" friction="1 0.01 0.01" />
+      </default>
+    </default>
+  </default>
+
+  <compiler angle="radian" />
+
+  <asset>
+    <material name="default_material" rgba="0.7 0.7 0.7 1" />
+    <material name="collision_material" rgba="1.0 0.28 0.1 0.9" />
+    <mesh name="base_link_collision.STL" file="meshes/base_link_collision.STL" />
+    <mesh name="base_link.obj" file="meshes/base_link.obj" />
+    <mesh name="steer_motor_link1_collision.STL" file="meshes/steer_motor_link1_collision.STL" />
+    <mesh name="steer_motor_link1.obj" file="meshes/steer_motor_link1.obj" />
+    <mesh name="wheel_motor_link1_collision.STL" file="meshes/wheel_motor_link1_collision.STL" />
+    <mesh name="wheel_motor_link1.obj" file="meshes/wheel_motor_link1.obj" />
+    <mesh name="steer_motor_link2_collision.STL" file="meshes/steer_motor_link2_collision.STL" />
+    <mesh name="steer_motor_link2.obj" file="meshes/steer_motor_link2.obj" />
+    <mesh name="wheel_motor_link2_collision.STL" file="meshes/wheel_motor_link2_collision.STL" />
+    <mesh name="wheel_motor_link2.obj" file="meshes/wheel_motor_link2.obj" />
+    <mesh name="steer_motor_link3_collision.STL" file="meshes/steer_motor_link3_collision.STL" />
+    <mesh name="steer_motor_link3.obj" file="meshes/steer_motor_link3.obj" />
+    <mesh name="wheel_motor_link3_collision.STL" file="meshes/wheel_motor_link3_collision.STL" />
+    <mesh name="wheel_motor_link3.obj" file="meshes/wheel_motor_link3.obj" />
+    <mesh name="torso_link1_collision.STL" file="meshes/torso_link1_collision.STL" />
+    <mesh name="torso_link1.obj" file="meshes/torso_link1.obj" />
+    <mesh name="torso_link2_collision.STL" file="meshes/torso_link2_collision.STL" />
+    <mesh name="torso_link2.obj" file="meshes/torso_link2.obj" />
+    <mesh name="torso_link3_collision.STL" file="meshes/torso_link3_collision.STL" />
+    <mesh name="torso_link3.obj" file="meshes/torso_link3.obj" />
+    <mesh name="camera_head_left_link_collision.STL" file="meshes/camera_head_left_link_collision.STL" />
+    <mesh name="left_arm_base_link_collision.STL" file="meshes/left_arm_base_link_collision.STL" />
+    <mesh name="left_arm_base_link.obj" file="meshes/left_arm_base_link.obj" />
+    <mesh name="left_arm_link1_collision.STL" file="meshes/left_arm_link1_collision.STL" />
+    <mesh name="left_arm_link1.obj" file="meshes/left_arm_link1.obj" />
+    <mesh name="left_arm_link2_collision.STL" file="meshes/left_arm_link2_collision.STL" />
+    <mesh name="left_arm_link2.obj" file="meshes/left_arm_link2.obj" />
+    <mesh name="left_arm_link3_collision.STL" file="meshes/left_arm_link3_collision.STL" />
+    <mesh name="left_arm_link3.obj" file="meshes/left_arm_link3.obj" />
+    <mesh name="left_arm_link4_collision.STL" file="meshes/left_arm_link4_collision.STL" />
+    <mesh name="left_arm_link4.obj" file="meshes/left_arm_link4.obj" />
+    <mesh name="left_arm_link5_collision.STL" file="meshes/left_arm_link5_collision.STL" />
+    <mesh name="left_arm_link5.obj" file="meshes/left_arm_link5.obj" />
+    <mesh name="left_arm_link6_collision.STL" file="meshes/left_arm_link6_collision.STL" />
+    <mesh name="left_arm_link6.obj" file="meshes/left_arm_link6.obj" />
+    <mesh name="left_gripper_link_collision.STL" file="meshes/left_gripper_link_collision.STL" />
+    <mesh name="left_gripper_link.obj" file="meshes/left_gripper_link.obj" />
+    <mesh name="left_D405_link_collision.STL" file="meshes/left_D405_link_collision.STL" />
+    <mesh name="left_D405_link.obj" file="meshes/left_D405_link.obj" />
+    <mesh name="left_gripper_finger_link1.obj" file="meshes/left_gripper_finger_link1.obj" />
+    <mesh name="left_gripper_finger_link2.obj" file="meshes/left_gripper_finger_link2.obj" />
+    <mesh name="right_arm_base_link_collision.STL" file="meshes/right_arm_base_link_collision.STL" />
+    <mesh name="right_arm_base_link.obj" file="meshes/right_arm_base_link.obj" />
+    <mesh name="right_arm_link1_collision.STL" file="meshes/right_arm_link1_collision.STL" />
+    <mesh name="right_arm_link1.obj" file="meshes/right_arm_link1.obj" />
+    <mesh name="right_arm_link2_collision.STL" file="meshes/right_arm_link2_collision.STL" />
+    <mesh name="right_arm_link2.obj" file="meshes/right_arm_link2.obj" />
+    <mesh name="right_arm_link3_collision.STL" file="meshes/right_arm_link3_collision.STL" />
+    <mesh name="right_arm_link3.obj" file="meshes/right_arm_link3.obj" />
+    <mesh name="right_arm_link4_collision.STL" file="meshes/right_arm_link4_collision.STL" />
+    <mesh name="right_arm_link4.obj" file="meshes/right_arm_link4.obj" />
+    <mesh name="right_arm_link5_collision.STL" file="meshes/right_arm_link5_collision.STL" />
+    <mesh name="right_arm_link5.obj" file="meshes/right_arm_link5.obj" />
+    <mesh name="right_arm_link6_collision.STL" file="meshes/right_arm_link6_collision.STL" />
+    <mesh name="right_arm_link6.obj" file="meshes/right_arm_link6.obj" />
+    <mesh name="right_gripper_link_collision.STL" file="meshes/right_gripper_link_collision.STL" />
+    <mesh name="right_gripper_link.obj" file="meshes/right_gripper_link.obj" />
+    <mesh name="right_D405_link_collision.STL" file="meshes/right_D405_link_collision.STL" />
+    <mesh name="right_D405_link.obj" file="meshes/right_D405_link.obj" />
+    <mesh name="right_gripper_finger_link1.obj" file="meshes/right_gripper_finger_link1.obj" />
+    <mesh name="right_gripper_finger_link2.obj" file="meshes/right_gripper_finger_link2.obj" />
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0.00000000 0.00000000 0.00000000" quat="1 0 0 0" childclass="robot">
+      <freejoint name="floating_base" />
+      <geom name="base_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="base_link_collision.STL" class="collision" />
+      <geom name="base_link_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="base_link.obj" class="visual" />
+      <body name="steer_motor_link1" pos="0.29183 -0.0014897 0.18165" quat="1.0 0.0 0.0 0.0">
+        <inertial pos="-1.76196610579549E-07 -7.75116053202478E-05 -0.0852489956386505" quat="1.0 0.0 0.0 0.0" mass="1.5" diaginertia="0.000338657650556839 0.000503900951850049 0.000211486748436409" />
+        <geom name="steer_motor_link1_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="steer_motor_link1_collision.STL" class="collision" />
+        <geom name="steer_motor_link1_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="steer_motor_link1.obj" class="visual" />
+        <body name="wheel_motor_link1" pos="0 0 -0.11165" quat="1.0 0.0 0.0 0.0">
+          <inertial pos="0 -9.99250577455509E-13 -2.34534613952064E-15" quat="1.0 0.0 0.0 0.0" mass="1.5" diaginertia="0.00104702497304016 0.00181031135070458 0.00104702497304016" />
+          <geom name="wheel_motor_link1_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="wheel_motor_link1_collision.STL" class="collision" />
+          <geom name="wheel_motor_link1_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="wheel_motor_link1.obj" class="visual" />
+        </body>
+      </body>
+      <body name="steer_motor_link2" pos="-0.16817 0.23851 0.18165" quat="1.0 0.0 0.0 0.0">
+        <inertial pos="1.76196610607304E-07 7.75116053202962E-05 -0.0852489956386505" quat="1.0 0.0 0.0 0.0" mass="1.5" diaginertia="0.000338657650556839 0.000503900951850049 0.000211486748436408" />
+        <geom name="steer_motor_link2_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="steer_motor_link2_collision.STL" class="collision" />
+        <geom name="steer_motor_link2_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="steer_motor_link2.obj" class="visual" />
+        <body name="wheel_motor_link2" pos="0 0 -0.11165" quat="1.0 0.0 0.0 0.0">
+          <inertial pos="2.77555756156289E-17 -1.94289029309402E-16 -2.34621350125863E-15" quat="1.0 0.0 0.0 0.0" mass="1.5" diaginertia="0.00104702497304016 0.00181031135070458 0.00104702497304016" />
+          <geom name="wheel_motor_link2_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="wheel_motor_link2_collision.STL" class="collision" />
+          <geom name="wheel_motor_link2_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="wheel_motor_link2.obj" class="visual" />
+        </body>
+      </body>
+      <body name="steer_motor_link3" pos="-0.16817 -0.24149 0.18165" quat="1.0 0.0 0.0 0.0">
+        <inertial pos="1.76196610579549E-07 7.75116053202407E-05 -0.0852489956386505" quat="1.0 0.0 0.0 0.0" mass="1.5" diaginertia="0.000338657650556839 0.000503900951850049 0.000211486748436408" />
+        <geom name="steer_motor_link3_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="steer_motor_link3_collision.STL" class="collision" />
+        <geom name="steer_motor_link3_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="steer_motor_link3.obj" class="visual" />
+        <body name="wheel_motor_link3" pos="0 0 -0.11165" quat="1.0 0.0 0.0 0.0">
+          <inertial pos="0 -1.94289029309402E-16 -2.34274405430668E-15" quat="1.0 0.0 0.0 0.0" mass="1.5" diaginertia="0.00104702497304016 0.00181031135070458 0.00104702497304016" />
+          <geom name="wheel_motor_link3_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="wheel_motor_link3_collision.STL" class="collision" />
+          <geom name="wheel_motor_link3_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="wheel_motor_link3.obj" class="visual" />
+        </body>
+      </body>
+      <body name="torso_link1" pos="0.091831 0.00036033 0.14865" quat="1.0 0.0 0.0 0.0">
+        <joint name="torso_joint1" type="hinge" ref="0.0" class="motor" range="-1.5708 0.436333" axis="0 1 0" />
+        <inertial pos="0.00321196798398059 0.0116566745256909 0.100697975240297" quat="1.0 0.0 0.0 0.0" mass="4.807" diaginertia="0.00310511493924453 0.00326868759782864 0.000354993987137864" />
+        <geom name="torso_link1_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="torso_link1_collision.STL" class="collision" />
+        <geom name="torso_link1_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="torso_link1.obj" class="visual" />
+        <body name="torso_link2" pos="0 -0.00185 0.35" quat="1.0 0.0 0.0 0.0">
+          <joint name="torso_joint2" type="hinge" ref="0.0" class="motor" range="-2.705262 2.705262" axis="0 1 0" />
+          <inertial pos="0.00627300956924463 0.00536087570300695 0.184118796618929" quat="1.0 0.0 0.0 0.0" mass="2.779" diaginertia="0.0309540761907757 0.032517017639908 0.00185256464591929" />
+          <geom name="torso_link2_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="torso_link2_collision.STL" class="collision" />
+          <geom name="torso_link2_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="torso_link2.obj" class="visual" />
+          <body name="torso_link3" pos="9.6485E-05 0 0.35" quat="1.0 0.0 0.0 0.0">
+            <joint name="torso_joint3" type="hinge" ref="0.0" class="motor" range="-1.5708 1.5708" axis="0 -1 0" />
+            <inertial pos="-0.0416383086406449 0.000484599582373232 0.051111008977659" quat="1.0 0.0 0.0 0.0" mass="5.833" diaginertia="0.00647219350010978 0.0054231706909373 0.00845061936347779" />
+            <geom name="torso_link3_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="torso_link3_collision.STL" class="collision" />
+            <geom name="torso_link3_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="torso_link3.obj" class="visual" />
+            <body name="camera_head_left_link" pos="0.054947 0.03149 0.63214" quat="0.35330145353102294 -0.612475506718802 0.612553837075856 -0.3533123735252685">
+              <geom name="camera_head_left_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="camera_head_left_link_collision.STL" class="collision" />
+            </body>
+            <body name="camera_head_right_link" pos="0.054943 -0.03351 0.63214" quat="0.35330145353102294 -0.612475506718802 0.612553837075856 -0.3533123735252685" />
+            <body name="left_arm_base_link" pos="0 0.335 0.12306" quat="1.0 0.0 0.0 0.0">
+              <inertial pos="0.0030333225964161 -0.000695374211760413 0.0297999913998699" quat="1.0 0.0 0.0 0.0" mass="0.786" diaginertia="0.000209638954503881 0.000199797107592004 0.00023745988736141" />
+              <geom name="left_arm_base_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_arm_base_link_collision.STL" class="collision" />
+              <geom name="left_arm_base_link_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_arm_base_link.obj" class="visual" />
+              <body name="left_arm_link1" pos="0 0 0.08605" quat="1.0 0.0 0.0 0.0">
+                <joint name="left_arm_joint1" type="hinge" ref="0.0" class="motor" range="-2.8798 2.8798" axis="0 0 1" />
+                <inertial pos="3.42079032877862E-07 -0.00198629091504759 0.0468866154783616" quat="1.0 0.0 0.0 0.0" mass="0.839" diaginertia="0.000224145218285449 0.000269809362921142 0.000218726872211685" />
+                <geom name="left_arm_link1_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_arm_link1_collision.STL" class="collision" />
+                <geom name="left_arm_link1_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_arm_link1.obj" class="visual" />
+                <body name="left_arm_link2" pos="0 0.03075 0.04925" quat="1.0 0.0 0.0 0.0">
+                  <joint name="left_arm_joint2" type="hinge" ref="0.0" class="motor" range="0 3.1416" axis="0 1 0" />
+                  <inertial pos="-0.122675172740935 -0.0295384346078661 0.00365030178710546" quat="1.0 0.0 0.0 0.0" mass="1.09" diaginertia="0.000388241930413796 0.00274637473933513 0.00278012046088806" />
+                  <geom name="left_arm_link2_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_arm_link2_collision.STL" class="collision" />
+                  <geom name="left_arm_link2_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_arm_link2.obj" class="visual" />
+                  <body name="left_arm_link3" pos="-0.3 0.00025004 0" quat="1.0 0.0 0.0 0.0">
+                    <joint name="left_arm_joint3" type="hinge" ref="0.0" class="motor" range="-3.3161 0" axis="0 1 0" />
+                    <inertial pos="0.0566624793223791 -0.0291316466078999 0.0568018844686509" quat="1.0 0.0 0.0 0.0" mass="0.739" diaginertia="0.000257907545256439 0.000671352233244435 0.000550051611056369" />
+                    <geom name="left_arm_link3_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_arm_link3_collision.STL" class="collision" />
+                    <geom name="left_arm_link3_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_arm_link3.obj" class="visual" />
+                    <body name="left_arm_link4" pos="0.1747 0.00049739 0.075485" quat="1.0 0.0 0.0 0.0">
+                      <joint name="left_arm_joint4" type="hinge" ref="0.0" class="motor" range="-1.5708 1.5708" axis="0 1 0" />
+                      <inertial pos="0.0699840030193581 -0.0287504697364447 0.0541968318197228" quat="1.0 0.0 0.0 0.0" mass="0.419" diaginertia="6.62006896114572e-05 6.79307239443371e-05 6.69265447808637e-05" />
+                      <geom name="left_arm_link4_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_arm_link4_collision.STL" class="collision" />
+                      <geom name="left_arm_link4_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_arm_link4.obj" class="visual" />
+                      <body name="left_arm_link5" pos="0.08 -0.031498 0.0405" quat="1.0 0.0 0.0 0.0">
+                        <joint name="left_arm_joint5" type="hinge" ref="0.0" class="motor" range="-1.5708 1.5708" axis="0 0 1" />
+                        <inertial pos="-0.000803198983898074 -2.29028914278118E-07 -0.0402656141956459" quat="1.0 0.0 0.0 0.0" mass="0.054" diaginertia="5.80420988761095e-05 5.76397557796697e-05 5.68558379713068e-05" />
+                        <geom name="left_arm_link5_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_arm_link5_collision.STL" class="collision" />
+                        <geom name="left_arm_link5_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_arm_link5.obj" class="visual" />
+                        <body name="left_arm_link6" pos="0.022503 0 -0.0405" quat="1.0 0.0 0.0 0.0">
+                          <joint name="left_arm_joint6" type="hinge" ref="0.0" class="motor" range="-2.8798 2.8798" axis="1 0 0" />
+                          <inertial pos="0.00709944426961403 -8.90673146347609E-10 -3.82632235882419E-05" quat="1.0 0.0 0.0 0.0" mass="0.031" diaginertia="3.44527427683917e-06 1.82572780689222e-06 1.81730990577526e-06" />
+                          <geom name="left_arm_link6_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_arm_link6_collision.STL" class="collision" />
+                          <geom name="left_arm_link6_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_arm_link6.obj" class="visual" />
+                          <body name="left_gripper_link" pos="0.08165 0 0" quat="1.0 0.0 0.0 0.0">
+                            <inertial pos="-0.0311072323899603 1.17979991887118E-08 7.93394685505433E-08" quat="1.0 0.0 0.0 0.0" mass="0.604" diaginertia="0.000175881544189539 9.86379407701341e-05 0.000165121280580029" />
+                            <geom name="left_gripper_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_gripper_link_collision.STL" class="collision" />
+                            <geom name="left_gripper_link_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_gripper_link.obj" class="visual" />
+                            <body name="left_D405_link" pos="-0.019206 0.009 0.074757" quat="0.2991330233611555 -0.6407164721873964 0.6407188256747343 -0.2991341221401215">
+                              <inertial pos="0.00904707172595565 0.0155186578135894 -0.00819594831599657" quat="1.0 0.0 0.0 0.0" mass="0.1" diaginertia="2.7808294491585e-05 2.1895142505718e-05 2.07706210421564e-05" />
+                              <geom name="left_D405_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="left_D405_link_collision.STL" class="collision" />
+                              <geom name="left_D405_link_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_D405_link.obj" class="visual" />
+                            </body>
+                            <body name="left_gripper_finger_link1" pos="0.03689 0.013453 0.00012059" quat="1.0 0.0 0.0 0.0">
+                              <joint name="left_gripper_finger_joint1" type="slide" ref="0.0" class="motor" range="0 0.05" axis="0 1 0" />
+                              <inertial pos="-0.0195895895552112 -0.0151136845490034 0.00542254359093075" quat="1.0 0.0 0.0 0.0" mass="0.020196517310345" diaginertia="2.40569358477209e-06 5.71079298307516e-06 6.48482183930358e-06" />
+                              <geom name="left_gripper_finger_link1_collision" pos="0 -0.009999999999999998 0" quat="1.0 0.0 0.0 0.0" type="box" size="0.03 0.005 0.02" class="collision" />
+                              <geom name="left_gripper_finger_link1_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_gripper_finger_link1.obj" class="visual" />
+                            </body>
+                            <body name="left_gripper_finger_link2" pos="0.03689 -0.013453 -0.00012059" quat="1.0 0.0 0.0 0.0">
+                              <joint name="left_gripper_finger_joint2" type="slide" ref="0.0" class="motor" range="-0.05 0" axis="0 1 0" />
+                              <inertial pos="-0.0195895857999098 0.0151136893508115 -0.00542254357246619" quat="1.0 0.0 0.0 0.0" mass="0.0201965174144991" diaginertia="2.40569340151687e-06 5.71079321589929e-06 6.48482187274222e-06" />
+                              <geom name="left_gripper_finger_link2_collision" pos="0 0.009999999999999998 0" quat="1.0 0.0 0.0 0.0" type="box" size="0.03 0.005 0.02" class="collision" />
+                              <geom name="left_gripper_finger_link2_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="left_gripper_finger_link2.obj" class="visual" />
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            <body name="right_arm_base_link" pos="0 -0.335 0.12306" quat="1.0 0.0 0.0 0.0">
+              <inertial pos="0.00303332259650781 -0.000695374211141575 0.0297999913998387" quat="1.0 0.0 0.0 0.0" mass="0.786" diaginertia="0.000209638954503626 0.000199797107592703 0.000237459887361725" />
+              <geom name="right_arm_base_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_arm_base_link_collision.STL" class="collision" />
+              <geom name="right_arm_base_link_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_arm_base_link.obj" class="visual" />
+              <body name="right_arm_link1" pos="0 0 0.08605" quat="1.0 0.0 0.0 0.0">
+                <joint name="right_arm_joint1" type="hinge" ref="0.0" class="motor" range="-2.8798 2.8798" axis="0 0 1" />
+                <inertial pos="3.42079032877862E-07 -0.00198629091504759 0.0468866154783616" quat="1.0 0.0 0.0 0.0" mass="0.839" diaginertia="0.000224145218285449 0.000269809362921142 0.000218726872211685" />
+                <geom name="right_arm_link1_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_arm_link1_collision.STL" class="collision" />
+                <geom name="right_arm_link1_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_arm_link1.obj" class="visual" />
+                <body name="right_arm_link2" pos="0 0.03075 0.04925" quat="1.0 0.0 0.0 0.0">
+                  <joint name="right_arm_joint2" type="hinge" ref="0.0" class="motor" range="0 3.1416" axis="0 1 0" />
+                  <inertial pos="-0.122675172740935 -0.0295384346078661 0.00365030178710546" quat="1.0 0.0 0.0 0.0" mass="1.09" diaginertia="0.000388241930413796 0.00274637473933513 0.00278012046088806" />
+                  <geom name="right_arm_link2_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_arm_link2_collision.STL" class="collision" />
+                  <geom name="right_arm_link2_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_arm_link2.obj" class="visual" />
+                  <body name="right_arm_link3" pos="-0.3 0.00025004 0" quat="1.0 0.0 0.0 0.0">
+                    <joint name="right_arm_joint3" type="hinge" ref="0.0" class="motor" range="-3.3161 0" axis="0 1 0" />
+                    <inertial pos="0.0566624793223791 -0.0291316466078999 0.0568018844686509" quat="1.0 0.0 0.0 0.0" mass="0.739" diaginertia="0.000257907545256439 0.000671352233244435 0.000550051611056369" />
+                    <geom name="right_arm_link3_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_arm_link3_collision.STL" class="collision" />
+                    <geom name="right_arm_link3_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_arm_link3.obj" class="visual" />
+                    <body name="right_arm_link4" pos="0.1747 0.00049739 0.075485" quat="1.0 0.0 0.0 0.0">
+                      <joint name="right_arm_joint4" type="hinge" ref="0.0" class="motor" range="-1.5708 1.5708" axis="0 1 0" />
+                      <inertial pos="0.0699840030193581 -0.0287504697364447 0.0541968318197228" quat="1.0 0.0 0.0 0.0" mass="0.419" diaginertia="6.62006896114572e-05 6.79307239443371e-05 6.69265447808637e-05" />
+                      <geom name="right_arm_link4_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_arm_link4_collision.STL" class="collision" />
+                      <geom name="right_arm_link4_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_arm_link4.obj" class="visual" />
+                      <body name="right_arm_link5" pos="0.08 -0.031498 0.0405" quat="1.0 0.0 0.0 0.0">
+                        <joint name="right_arm_joint5" type="hinge" ref="0.0" class="motor" range="-1.5708 1.5708" axis="0 0 1" />
+                        <inertial pos="-0.000803198983898074 -2.29028914278118E-07 -0.0402656141956459" quat="1.0 0.0 0.0 0.0" mass="0.054" diaginertia="5.80420988761095e-05 5.76397557796697e-05 5.68558379713068e-05" />
+                        <geom name="right_arm_link5_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_arm_link5_collision.STL" class="collision" />
+                        <geom name="right_arm_link5_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_arm_link5.obj" class="visual" />
+                        <body name="right_arm_link6" pos="0.022503 0 -0.0405" quat="1.0 0.0 0.0 0.0">
+                          <joint name="right_arm_joint6" type="hinge" ref="0.0" class="motor" range="-2.8798 2.8798" axis="1 0 0" />
+                          <inertial pos="0.00709944426961403 -8.90673146347609E-10 -3.82632235882419E-05" quat="1.0 0.0 0.0 0.0" mass="0.031" diaginertia="3.44527427683917e-06 1.82572780689222e-06 1.81730990577526e-06" />
+                          <geom name="right_arm_link6_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_arm_link6_collision.STL" class="collision" />
+                          <geom name="right_arm_link6_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_arm_link6.obj" class="visual" />
+                          <body name="right_gripper_link" pos="0.08165 0 0" quat="1.0 0.0 0.0 0.0">
+                            <inertial pos="-0.0311072323899603 1.17979991887118E-08 7.93394685505433E-08" quat="1.0 0.0 0.0 0.0" mass="0.604" diaginertia="0.000175881544189539 9.86379407701341e-05 0.000165121280580029" />
+                            <geom name="right_gripper_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_gripper_link_collision.STL" class="collision" />
+                            <geom name="right_gripper_link_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_gripper_link.obj" class="visual" />
+                            <body name="right_D405_link" pos="-0.019206 0.009 0.074757" quat="0.2991330233611555 -0.6407164721873964 0.6407188256747343 -0.2991341221401215">
+                              <inertial pos="0.00904707172594749 0.0155186578138565 -0.00819594831521042" quat="1.0 0.0 0.0 0.0" mass="0.1" diaginertia="2.78082944930657e-05 2.18951425070333e-05 2.07706210423581e-05" />
+                              <geom name="right_D405_link_collision" pos="0 0 0" quat="1.0 0.0 0.0 0.0" type="mesh" mesh="right_D405_link_collision.STL" class="collision" />
+                              <geom name="right_D405_link_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_D405_link.obj" class="visual" />
+                            </body>
+                            <body name="right_gripper_finger_link1" pos="0.03689 0.013453 0.00012059" quat="1.0 0.0 0.0 0.0">
+                              <joint name="right_gripper_finger_joint1" type="slide" ref="0.0" class="motor" range="0 0.05" axis="0 1 0" />
+                              <inertial pos="-0.0195895895552112 -0.0151136845490034 0.00542254359093075" quat="1.0 0.0 0.0 0.0" mass="0.020196517310345" diaginertia="2.40569358477209e-06 5.71079298307516e-06 6.48482183930358e-06" />
+                              <geom name="right_gripper_finger_link1_collision" pos="0 -0.009999999999999998 0" quat="1.0 0.0 0.0 0.0" type="box" size="0.03 0.005 0.02" class="collision" />
+                              <geom name="right_gripper_finger_link1_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_gripper_finger_link1.obj" class="visual" />
+                            </body>
+                            <body name="right_gripper_finger_link2" pos="0.03689 -0.013453 -0.00012059" quat="1.0 0.0 0.0 0.0">
+                              <joint name="right_gripper_finger_joint2" type="slide" ref="0.0" class="motor" range="-0.05 0" axis="0 1 0" />
+                              <inertial pos="-0.0195895857999098 0.0151136893508115 -0.00542254357246619" quat="1.0 0.0 0.0 0.0" mass="0.0201965174144991" diaginertia="2.40569340151687e-06 5.71079321589929e-06 6.48482187274222e-06" />
+                              <geom name="right_gripper_finger_link2_collision" pos="0 0.009999999999999998 0" quat="1.0 0.0 0.0 0.0" type="box" size="0.03 0.005 0.02" class="collision" />
+                              <geom name="right_gripper_finger_link2_visual" pos="0 0 0" quat="1.0 0.0 0.0 0.0" material="default_material" type="mesh" mesh="right_gripper_finger_link2.obj" class="visual" />
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <site name="base_link_site" pos="0 0 0" quat="1 0 0 0" />
+      <camera name="front_camera" mode="track" fovy="90.0" quat="4.329780281177467e-17 4.329780281177466e-17 0.7071067811865475 0.7071067811865476" pos="0.0 2.0 0.5" />
+      <camera name="side_camera" mode="track" fovy="90.0" quat="-0.5 -0.4999999999999999 0.5 0.5000000000000001" pos="-2.0 0.0 0.5" />
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="torso_joint1_ctrl" joint="torso_joint1" class="motor" />
+    <motor name="torso_joint2_ctrl" joint="torso_joint2" class="motor" />
+    <motor name="torso_joint3_ctrl" joint="torso_joint3" class="motor" />
+    <motor name="left_arm_joint1_ctrl" joint="left_arm_joint1" class="motor" />
+    <motor name="left_arm_joint2_ctrl" joint="left_arm_joint2" class="motor" />
+    <motor name="left_arm_joint3_ctrl" joint="left_arm_joint3" class="motor" />
+    <motor name="left_arm_joint4_ctrl" joint="left_arm_joint4" class="motor" />
+    <motor name="left_arm_joint5_ctrl" joint="left_arm_joint5" class="motor" />
+    <motor name="left_arm_joint6_ctrl" joint="left_arm_joint6" class="motor" />
+    <motor name="left_gripper_finger_joint1_ctrl" joint="left_gripper_finger_joint1" class="motor" />
+    <motor name="left_gripper_finger_joint2_ctrl" joint="left_gripper_finger_joint2" class="motor" />
+    <motor name="right_arm_joint1_ctrl" joint="right_arm_joint1" class="motor" />
+    <motor name="right_arm_joint2_ctrl" joint="right_arm_joint2" class="motor" />
+    <motor name="right_arm_joint3_ctrl" joint="right_arm_joint3" class="motor" />
+    <motor name="right_arm_joint4_ctrl" joint="right_arm_joint4" class="motor" />
+    <motor name="right_arm_joint5_ctrl" joint="right_arm_joint5" class="motor" />
+    <motor name="right_arm_joint6_ctrl" joint="right_arm_joint6" class="motor" />
+    <motor name="right_gripper_finger_joint1_ctrl" joint="right_gripper_finger_joint1" class="motor" />
+    <motor name="right_gripper_finger_joint2_ctrl" joint="right_gripper_finger_joint2" class="motor" />
+  </actuator>
+
+  <contact>
+    <exclude body1="base_link" body2="steer_motor_link1" />
+    <exclude body1="steer_motor_link1" body2="wheel_motor_link1" />
+    <exclude body1="base_link" body2="steer_motor_link2" />
+    <exclude body1="steer_motor_link2" body2="wheel_motor_link2" />
+    <exclude body1="base_link" body2="steer_motor_link3" />
+    <exclude body1="steer_motor_link3" body2="wheel_motor_link3" />
+    <exclude body1="base_link" body2="torso_link1" />
+    <exclude body1="torso_link1" body2="torso_link2" />
+    <exclude body1="torso_link2" body2="torso_link3" />
+    <exclude body1="torso_link3" body2="camera_head_left_link" />
+    <exclude body1="torso_link3" body2="left_arm_base_link" />
+    <exclude body1="left_arm_base_link" body2="left_arm_link1" />
+    <exclude body1="left_arm_link1" body2="left_arm_link2" />
+    <exclude body1="left_arm_link2" body2="left_arm_link3" />
+    <exclude body1="left_arm_link3" body2="left_arm_link4" />
+    <exclude body1="left_arm_link4" body2="left_arm_link5" />
+    <exclude body1="left_arm_link5" body2="left_arm_link6" />
+    <exclude body1="left_arm_link6" body2="left_gripper_link" />
+    <exclude body1="left_gripper_link" body2="left_D405_link" />
+    <exclude body1="left_gripper_link" body2="left_gripper_finger_link1" />
+    <exclude body1="left_gripper_link" body2="left_gripper_finger_link2" />
+    <exclude body1="torso_link3" body2="right_arm_base_link" />
+    <exclude body1="right_arm_base_link" body2="right_arm_link1" />
+    <exclude body1="right_arm_link1" body2="right_arm_link2" />
+    <exclude body1="right_arm_link2" body2="right_arm_link3" />
+    <exclude body1="right_arm_link3" body2="right_arm_link4" />
+    <exclude body1="right_arm_link4" body2="right_arm_link5" />
+    <exclude body1="right_arm_link5" body2="right_arm_link6" />
+    <exclude body1="right_arm_link6" body2="right_gripper_link" />
+    <exclude body1="right_gripper_link" body2="right_D405_link" />
+    <exclude body1="right_gripper_link" body2="right_gripper_finger_link1" />
+    <exclude body1="right_gripper_link" body2="right_gripper_finger_link2" />
+  </contact>
+
+  <sensor>
+    <framepos name="base_link_site_pos" objtype="site" objname="base_link_site" />
+    <framequat name="base_link_site_quat" objtype="site" objname="base_link_site" />
+    <framelinvel name="base_link_site_linvel" objtype="site" objname="base_link_site" />
+    <frameangvel name="base_link_site_angvel" objtype="site" objname="base_link_site" />
+    <velocimeter name="base_link_site_vel" site="base_link_site" />
+  </sensor>
+</mujoco>

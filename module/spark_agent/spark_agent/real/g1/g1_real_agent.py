@@ -364,14 +364,14 @@ class G1RealAgent(BaseAgent):
         for _ in range(100):
             
             target_kp = np.zeros_like(self.motor_kp)
-            target_kp[self.robot_cfg.DoFs.WaistPitch] = self.motor_kp[self.robot_cfg.DoFs.WaistPitch]
-            target_kp[self.robot_cfg.DoFs.WaistRoll] = self.motor_kp[self.robot_cfg.DoFs.WaistRoll]
-            target_kp[self.robot_cfg.DoFs.WaistYaw] = self.motor_kp[self.robot_cfg.DoFs.WaistYaw]
+            # target_kp[self.robot_cfg.DoFs.WaistPitch] = self.motor_kp[self.robot_cfg.DoFs.WaistPitch]
+            # target_kp[self.robot_cfg.DoFs.WaistRoll] = self.motor_kp[self.robot_cfg.DoFs.WaistRoll]
+            # target_kp[self.robot_cfg.DoFs.WaistYaw] = self.motor_kp[self.robot_cfg.DoFs.WaistYaw]
             
             target_kd = np.zeros_like(self.motor_kd)
-            target_kd[self.robot_cfg.DoFs.WaistPitch] = self.motor_kd[self.robot_cfg.DoFs.WaistPitch]
-            target_kd[self.robot_cfg.DoFs.WaistRoll] = self.motor_kd[self.robot_cfg.DoFs.WaistRoll]
-            target_kd[self.robot_cfg.DoFs.WaistYaw] = self.motor_kd[self.robot_cfg.DoFs.WaistYaw]
+            # target_kd[self.robot_cfg.DoFs.WaistPitch] = self.motor_kd[self.robot_cfg.DoFs.WaistPitch]
+            # target_kd[self.robot_cfg.DoFs.WaistRoll] = self.motor_kd[self.robot_cfg.DoFs.WaistRoll]
+            # target_kd[self.robot_cfg.DoFs.WaistYaw] = self.motor_kd[self.robot_cfg.DoFs.WaistYaw]
             
             target_q = np.zeros(self.num_real_motor)
             target_dq = np.zeros(self.num_real_motor)
@@ -627,8 +627,7 @@ class G1RealAgent(BaseAgent):
         ret = {}
 
         # ------------------------------ Robot Base Frame ----------------------------- #
-        robot_base_frame = np.zeros((4, 4))
-        robot_base_frame[:3, :3] = np.eye(3)
+        robot_base_frame = np.eye(4)
         robot_base_frame[2, 3] = 0.793
 
         ret["robot_base_frame"] = robot_base_frame

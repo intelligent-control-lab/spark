@@ -16,12 +16,25 @@ This project also serves as the homework platform for Carnegie Mellon University
 For more information, please visit our [project website](https://intelligent-control-lab.github.io/spark/). If you find this code useful, consider citing our [paper](https://arxiv.org/pdf/2502.03132):
 
 ```bibtex
-@article{
-  sun2025spark,
-  title={SPARK: A Modular Benchmark for Humanoid Robot Safety},
-  author={Sun, Yifan and Chen, Rui and Yun, Kai S and Fang, Yikuan and Jung, Sebin and Li, Feihan and Li, Bowei and Zhao, Weiye and Liu, Changliu},
-  journal={arXiv preprint arXiv:2502.03132},
-  year={2025}
+@inproceedings{sun2025spark,
+  title        = {{SPARK}: Safe Protective and Assistive Robot Kit},
+  author       = {Sun, Yifan and
+                  Chen, Rui and
+                  Yun, Kai~S. and
+                  Fang, Yikuan and
+                  Jung, Sebin and
+                  Li, Feihan and
+                  Li, Bowei and
+                  Zhao, Weiye and
+                  Liu, Changliu},
+  booktitle    = {IFAC Symposium on Robotics},
+  year         = {2025},
+  eprint       = {2502.03132},
+  archivePrefix= {arXiv},
+  primaryClass = {cs.RO},
+  url          = {https://intelligent-control-lab.github.io/spark/},
+  video        = {https://www.youtube.com/embed/vIzeQ31YbCM},
+  repository   = {https://github.com/intelligent-control-lab/spark}
 }
 ```
 <div align="center">
@@ -73,14 +86,14 @@ pip install -e .
 ## 🚀 2 Quick Start
 
 ### 2.1 Safe Teleoperation Pipeline
-After installation, try running a implemented [safe teleoperation pipeline](#341-g1safeteleoppipeline).
+After installation, try running a implemented [safe teleoperation pipeline](pipeline/spark_pipeline/teleop/teleop_pipeline.py).
 A quick example is:
 ```
 python example/run_g1_safe_teleop_sim.py
 ```
 
 ### 2.2 Benchmark Pipeline
-To run a implemented [benchmark pipeline](#342-g1benchmarkpipeline), you can run:
+To run a implemented [benchmark pipeline](pipeline/spark_pipeline/autonomy/benchmark_pipeline.py), you can run:
 ```
 python example/run_g1_benchmark.py
 ```
@@ -89,9 +102,9 @@ python example/run_g1_benchmark.py
 To create a pipeline based on the benchmark configuration, you can follow the example below to test the Control Barrier Function (CBF) on a fixed-base humanoid robot.
 First, import necessary modules:
 ```python
-from spark_pipeline import G1BenchmarkPipeline as Pipeline
+from spark_pipeline import BenchmarkPipeline as Pipeline
 from spark_pipeline import G1BenchmarkPipelineConfig as PipelineConfig
-from spark_pipeline import generate_g1_benchmark_test_case
+from spark_pipeline import generate_benchmark_test_case
 ```
 Then load and customize the pipeline configuration
 ```python
@@ -100,7 +113,7 @@ cfg = PipelineConfig()
 
 # Load a predefined configuration for a fixed-base robot with first-order dynamics,
 # targeting arm goals amidst dynamic obstacles
-cfg = generate_g1_benchmark_test_case(cfg, "G1FixedBase_D1_AG_DO_v0")
+cfg = generate_benchmark_test_case(cfg, "G1FixedBase_D1_AG_DO_v0")
 
 # Set the safety algorithm to Control Barrier Function and configure its parameters
 cfg.algo.safe_controller.safe_algo.class_name = "BasicControlBarrierFunction"
@@ -145,8 +158,8 @@ Task runs for a maximal number of steps (-1 for continuous tasks).
 Currently supported tasks are listed below:
 |Task Class| Description |
 |-|-|
-| [G1TeleopSimTask](module/spark_task/spark_task/task/g1_teleop_sim/g1_teleop_sim_task.py) | Obstacle and robot goals can be controlled online via keyboard input |
-| [G1BenchmarkTask](module/spark_task/spark_task/task/g1_benchmark/g1_benchmark_task.py) | Obstacle and robot goals follow predefined trajectories |
+| [TeleopTask](module/spark_task/spark_task/teleop/teleop_task.py) | Obstacle and robot goals can be controlled online via keyboard input |
+| [BenchmarkTask](module/spark_task/spark_task/autonomy/benchmark_task.py) | Obstacle and robot goals follow predefined trajectories |
 
 #### 🤖 3.1.2 [Module] spark_agent
 
@@ -155,8 +168,19 @@ Returns local info (e.g., robot state). Global info can also be returned if avai
 Currently supported agents are listed below:
 |Agent Class| Description |
 |-|-|
-| [G1RealAgent](module/spark_agent/spark_agent/real/g1/g1_real_agent.py) | Supports deployment on a real robot using the Unitree G1 SDK |
-| [G1MujocoAgent](module/spark_agent/spark_agent/simulation/mujoco/g1_mujoco_agent.py) | Supports simulation in the MuJoCo environment |
+| [G1RealAgent](module/spark_agent/spark_agent/real/g1/g1_real_agent.py) | Deploys control on a physical Unitree G1 robot via the official SDK |
+| [G1MujocoFixedBaseAgent](module/spark_agent/spark_agent/simulation/mujoco/g1/g1_mujoco_fixed_base_agent.py) | Simulates Unitree G1 with a fixed base in MuJoCo |
+| [G1MujocoRightArmAgent](module/spark_agent/spark_agent/simulation/mujoco/g1/g1_mujoco_right_arm_agent.py) | Simulates the Unitree G1 right arm in MuJoCo |
+| [G1MujocoMobileBaseAgent](module/spark_agent/spark_agent/simulation/mujoco/g1/g1_mujoco_mobile_base_agent.py) | Simulates Unitree G1 with a mobile base in MuJoCo |
+| [G1MujocoSportModeAgent](module/spark_agent/spark_agent/simulation/mujoco/g1/g1_mujoco_sport_mode_agent.py) | Simulates Unitree G1 in sport mode in MuJoCo |
+| [G1MujocoWholeBodyAgent](module/spark_agent/spark_agent/simulation/mujoco/g1/g1_mujoco_whole_body_agent.py) | Simulates full-body Unitree G1 control in MuJoCo |
+| [IIWA14MujocoFixedBaseAgent](module/spark_agent/spark_agent/simulation/mujoco/iiwa14/iiwa14_mujoco_agent.py) | Simulates KUKA iiwa14 with a fixed base in MuJoCo |
+| [Gen3MujocoFixedBaseAgent](module/spark_agent/spark_agent/simulation/mujoco/gen3/gen3_mujoco_agent.py) | Simulates Kinova Gen3 with a fixed base in MuJoCo |
+| [LRMate200iD3fMujocoSingleAgent](module/spark_agent/spark_agent/simulation/mujoco/lrmate200id/lrmate200id_3f_mujoco_single_agent.py) | Simulates FANUC LRMate200iD with a 3-finger gripper in MuJoCo |
+| [R1LiteMujocoFixedBaseAgent](module/spark_agent/spark_agent/simulation/mujoco/r1lite/r1lite_mujoco_agent.py) | Simulates Unitree R1 Lite with a fixed base in MuJoCo |
+| [R1LiteRealAgent](module/spark_agent/spark_agent/real/r1lite/r1lite_real_agent.py) | Deploys control on a physical Unitree R1 Lite robot |
+
+
 
 ### 📝 3.2 [Wrapper] spark_algo
 
@@ -164,89 +188,141 @@ Algorithm wrapper aligning with env-algo structure. Composed of the following tw
 
 #### 💡 3.2.1 [Module] spark_policy
 
-Policies fulfilling task-specific objectives.
+Policies responsible for generating motion-level robot commands.  
+SPARK currently supports **model-based control policies**, **model-based planning policies**, and an integrated **safety submodule** for safety-aware command filtering.
+
 Currently supported policies are listed below:
-|Policy Class| Description |
-|-|-|
-| [G1TeleopPIDPolicy](module/spark_policy/spark_policy/feedback/g1_teleop_pid_policy.py) | PID-based reference control for teleoperation tasks |
-| [G1BenchmarkPIDPolicy](module/spark_policy/spark_policy/feedback/g1_benchmark_pid_policy.py) | PID-based reference control for benchmark tasks |
 
-#### 🛡️ 3.2.2 [Module] spark_safe
+| Policy Class | Description |
+|-------------|-------------|
+| [BenchmarkPIDPolicy](module/spark_policy/spark_policy/model_based/control_policy/benchmark_pid_policy.py) | PID-based reference controller for benchmark tasks |
+| [TeleopPIDPolicy](module/spark_policy/spark_policy/model_based/control_policy/teleop_pid_policy.py) | PID-based reference controller for teleoperation tasks |
+| [TrajTrackingPolicy](module/spark_policy/spark_policy/model_based/control_policy/traj_tracking_policy.py) | Trajectory tracking policy for Cartesian or joint-space references |
+| [G1WBCPolicy](module/spark_policy/spark_policy/model_based/control_policy/g1_wbc_policy.py) | Whole-body control policy for Unitree G1 |
+| [G1WBCPIDPolicy](module/spark_policy/spark_policy/model_based/control_policy/g1_wbc_pid_policy.py) | Whole-body control with PID-style tracking for Unitree G1 |
+| [RRTConnectPolicy](module/spark_policy/spark_policy/model_based/planning_policy/rrt_connect_policy.py) | RRT-Connect planner for collision-free motion planning |
 
-- `safe_algo`: core module implementing safe control methods and energy functions.
-- `safe_controller`: interface to safe control algorithms.
+---
+
+#### 🛡️ 3.2.2 [Submodule] spark_policy.safe
+
+The `spark_policy.safe` submodule integrates safety-aware components directly into the policy layer, including:
+- `safe_algo`: energy-function–based safe control algorithms.
+- `safe_controller`: interfaces for applying safe control to policy outputs.
 
 Currently supported safe algorithms are listed below:
-|Safe Algorithm Class| Description |
-|-|-|
-| [BasicSafeSetAlgorithm](module/spark_safe/spark_safe/safe_algo/value_based/ssa/basic_safe_set_algorithm.py) | [Safe Set Algorithm](https://www.cs.cmu.edu/~cliu6/files/dscc14.pdf)(SSA) based safe controller|
-| [RelaxedSafeSetAlgorithm](module/spark_safe/spark_safe/safe_algo/value_based/ssa/relaxed_safe_set_algorithm.py) | SSA based safe controller with slack variables |
-| [BasicControlBarrierFunction](module/spark_safe/spark_safe/safe_algo/value_based/cbf/basic_control_barrier_function.py) | [Control Barrier Function ](https://ieeexplore.ieee.org/document/8796030)(CBF) based safe controller|
-| [RelaxedControlBarrierFunction](module/spark_safe/spark_safe/safe_algo/value_based/cbf/relaxed_control_barrier_function.py) | CBF based safe controller with slack variables |
-| [BasicSublevelSafeSetAlgorithm](module/spark_safe/spark_safe/safe_algo/value_based/sss/basic_sublevel_safe_set_algorithm.py) | [Sublevel Safe Set Algorithm ](https://ieeexplore.ieee.org/document/9029720)(SSS) based safe controller |
-| [RelaxedSublevelSafeSetAlgorithm](module/spark_safe/spark_safe/safe_algo/value_based/sss/relaxed_sublevel_safe_set_algorithm.py) | SSS based safe controller with slack variables |
-| [BasicPotentialFieldMethod](module/spark_safe/spark_safe/safe_algo/value_based/pfm/basic_potential_field_method.py) | [Potential Field Method](https://journals.sagepub.com/doi/pdf/10.1177/027836498600500106?casa_token=bc5j0cp8W5IAAAAA:zvm2Ub30Z7IZAnZ_MYzaybIp2vW1vfYJVE75aT9Z_D8GnvwYDklQJw9Kq8DHYFTd2hMkuKvpM-7x)(PFM) based safe controller |
-| [BasicSlidingModeAlgorithm](module/spark_safe/spark_safe/safe_algo/value_based/sma/basic_sliding_mode_algorithm.py) | [Sliding Mode Algorithm](https://ieeexplore.ieee.org/document/6414600)(SMA) based safe controller |
 
-All currently supported algorithms are based on energy functions. Among them, SSA, CBF, and SSS are optimization-based methods, while SMA and PFM are not. In SPARK, we provide a set of built-in energy functions—referred to as safety indices—to support these safety-focused algorithms. The currently supported safety indices are listed below:
+| Safe Algorithm Class | Description |
+|---------------------|-------------|
+| [BasicSafeSetAlgorithm](module/spark_policy/spark_policy/safe/safe_algo/value_based/ssa/basic_safe_set_algorithm.py) | Safe Set Algorithm (SSA) based safe controller |
+| [RelaxedSafeSetAlgorithm](module/spark_policy/spark_policy/safe/safe_algo/value_based/ssa/relaxed_safe_set_algorithm.py) | SSA based safe controller with slack variables |
+| [BasicControlBarrierFunction](module/spark_policy/spark_policy/safe/safe_algo/value_based/cbf/basic_control_barrier_function.py) | Control Barrier Function (CBF) based safe controller |
+| [RelaxedControlBarrierFunction](module/spark_policy/spark_policy/safe/safe_algo/value_based/cbf/relaxed_control_barrier_function.py) | CBF based safe controller with slack variables |
+| [BasicSublevelSafeSetAlgorithm](module/spark_policy/spark_policy/safe/safe_algo/value_based/sss/basic_sublevel_safe_set_algorithm.py) | Sublevel Safe Set Algorithm (SSS) based safe controller |
+| [RelaxedSublevelSafeSetAlgorithm](module/spark_policy/spark_policy/safe/safe_algo/value_based/sss/relaxed_sublevel_safe_set_algorithm.py) | SSS based safe controller with slack variables |
+| [BasicPotentialFieldMethod](module/spark_policy/spark_policy/safe/safe_algo/value_based/pfm/basic_potential_field_method.py) | Potential Field Method (PFM) based safe controller |
+| [BasicSlidingModeAlgorithm](module/spark_policy/spark_policy/safe/safe_algo/value_based/sma/basic_sliding_mode_algorithm.py) | Sliding Mode Algorithm (SMA) based safe controller |
+
+All currently supported algorithms are based on energy functions.  
+Among them, **SSA, CBF, and SSS** are optimization-based methods, while **SMA and PFM** are not.
+
+SPARK provides a set of built-in energy functions—referred to as **safety indices**—to support these safety-focused algorithms.
+
+Currently supported safety indices are listed below:
+
 | Safety Index Class | Dynamic Order | Computation Method | Supported Collision Geometry |
-|-|-|-|-|
-| [FirstOrderCollisionSafetyIndex](module/spark_safe/spark_safe/safe_algo/value_based/base/collision_safety_index_1.py) | 1 | Analytical        | Sphere                        |
-| [FirstOrderCollisionSafetyIndexApprox](module/spark_safe/spark_safe/safe_algo/value_based/base/collision_safety_index_1_approx.py) | 1 | Central Difference         | Sphere + Box                  |
-| [SecondOrderCollisionSafetyIndex](module/spark_safe/spark_safe/safe_algo/value_based/base/collision_safety_index_2.py) | 2 | Analytical        | Sphere                        |
-| [SecondOrderCollisionSafetyIndexApprox](module/spark_safe/spark_safe/safe_algo/value_based/base/collision_safety_index_2_approx.py) | 2 | Central Difference         | Sphere + Box                  |
-| [SecondOrderNNCollisionSafetyIndex](module/spark_safe/spark_safe/safe_algo/value_based/base/collision_safety_index_2_nn.py) | 2 | Neural Network    | Sphere                        |
+|-------------------|--------------|--------------------|------------------------------|
+| [FirstOrderCollisionSafetyIndex](module/spark_policy/spark_policy/safe/safe_algo/value_based/base/collision_safety_index_1.py) | 1 | Analytical | Sphere |
+| [FirstOrderCollisionSafetyIndexApprox](module/spark_policy/spark_policy/safe/safe_algo/value_based/base/collision_safety_index_1_approx.py) | 1 | Central Difference | Sphere + Box |
+| [SecondOrderCollisionSafetyIndex](module/spark_policy/spark_policy/safe/safe_algo/value_based/base/collision_safety_index_2.py) | 2 | Analytical | Sphere |
+| [SecondOrderCollisionSafetyIndexApprox](module/spark_policy/spark_policy/safe/safe_algo/value_based/base/collision_safety_index_2_approx.py) | 2 | Central Difference | Sphere + Box |
+| [SecondOrderNNCollisionSafetyIndex](module/spark_policy/spark_policy/safe/safe_algo/value_based/base/collision_safety_index_2_nn.py) | 2 | Neural Network | Sphere |
 
 **⚠️ Full support of obstacle geometries will be available in later updates.**
+
+---
+
 #### NOTE
 
-For end-to-end safe algorithms, set `safe_controller` in pipeline configuration to `ByPassSafeControl` and implement safe algorithms in `spark_policy`. An example of disabling `safe_controller` is
-```
-python example/run_g1_unsafe_teleop_sim.py
-```
-The script is essentially [Safe G1 teleoperation](pipeline/spark_pipeline/g1_safe_teleop/readme.md) without safe control module.
+For **end-to-end safe algorithms**, set `safe_controller` in the pipeline configuration to `ByPassSafeControl` and implement safety logic directly inside `spark_policy`.
 
 ### ⚙️ 3.3 [Module] spark_robot
 
 Robot library containing robot config (e.g., state, dofs, urdf).
 Currently supported safe algorithms are listed below:
-|Robot Config Class| Kinematics Class | Dynamic Order |  Num of DoFs | State Dimension | Control Dimension|
-|-|-|-|-|-|-|
-| [G1RightArmDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_right_arm_dynamic_1_config.py) |[G1RightArmKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_right_arm_kinematics.py) | 1 | 7 | 7 | 7 |
-| [G1RightArmDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_right_arm_dynamic_2_config.py) |[G1RightArmKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_right_arm_kinematics.py) | 2 | 7 | 14 | 7 |
-| [G1FixedBaseDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_fixed_base_dynamic_1_config.py) |[G1FixedBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_fixed_base_kinematics.py) | 1 | 17 | 17 | 17 |
-| [G1FixedBaseDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_fixed_base_dynamic_2_config.py) |[G1FixedBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_fixed_base_kinematics.py) | 2 | 17 | 34 | 17 |
-| [G1MobileBaseDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_mobile_base_dynamic_1_config.py) |[G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 1 | 20 | 20 | 20 |
-| [G1MobileBaseDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_mobile_base_dynamic_2_config.py) |[G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 2 | 20 | 40 | 20 |
-| [G1SportModeDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_sport_mode_dynamic_1_config.py) |[G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 1 | 20 | 20 | 20 |
-| [G1SportModeDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_sport_mode_dynamic_2_config.py) |[G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 2 | 20 | 40 | 20 |
+| Robot Config Class | Kinematics Class | Dynamic Order | Num of DoFs | State Dimension | Control Dimension |
+|-------------------|------------------|---------------|-------------|-----------------|-------------------|
+| [G1RightArmDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_right_arm_dynamic_1_config.py) | [G1RightArmKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_right_arm_kinematics.py) | 1 | 7 | 7 | 7 |
+| [G1RightArmDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_right_arm_dynamic_2_config.py) | [G1RightArmKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_right_arm_kinematics.py) | 2 | 7 | 14 | 7 |
+| [G1FixedBaseDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_fixed_base_dynamic_1_config.py) | [G1FixedBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_fixed_base_kinematics.py) | 1 | 17 | 17 | 17 |
+| [G1FixedBaseDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_fixed_base_dynamic_2_config.py) | [G1FixedBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_fixed_base_kinematics.py) | 2 | 17 | 34 | 17 |
+| [G1MobileBaseDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_mobile_base_dynamic_1_config.py) | [G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 1 | 20 | 20 | 20 |
+| [G1MobileBaseDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_mobile_base_dynamic_2_config.py) | [G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 2 | 20 | 40 | 20 |
+| [G1SportModeDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_sport_mode_dynamic_1_config.py) | [G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 1 | 20 | 20 | 20 |
+| [G1SportModeDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_sport_mode_dynamic_2_config.py) | [G1MobileBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_mobile_base_kinematics.py) | 2 | 20 | 40 | 20 |
+| [G1DualArmDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_dual_arm_dynamic_1_config.py) | [G1DualArmBaseKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_dual_arm_kinematics.py) | 1 | 14 | 14 | 14 |
+| [G1WholeBodyDynamic1Config](module/spark_robot/spark_robot/g1/config/g1_whole_body_dynamic_1_config.py) | [G1WholeBodyKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_whole_body_kinematics.py) | 1 | 23 | 23 | 23 |
+| [G1WholeBodyDynamic2Config](module/spark_robot/spark_robot/g1/config/g1_whole_body_dynamic_2_config.py) | [G1WholeBodyKinematics](module/spark_robot/spark_robot/g1/kinematics/g1_whole_body_kinematics.py) | 2 | 23 | 46 | 23 |
+| [IIWA14SingleDynamic1Config](module/spark_robot/spark_robot/iiwa14/config/iiwa14_single_dynamic_1_config.py) | [IIWA14SingleKinematics](module/spark_robot/spark_robot/iiwa14/kinematics/iiwa14_single_kinematics.py) | 1 | 7 | 7 | 7 |
+| [IIWA14SingleDynamic2Config](module/spark_robot/spark_robot/iiwa14/config/iiwa14_single_dynamic_2_config.py) | [IIWA14SingleKinematics](module/spark_robot/spark_robot/iiwa14/kinematics/iiwa14_single_kinematics.py) | 2 | 7 | 14 | 7 |
+| [IIWA14DualDynamic1Config](module/spark_robot/spark_robot/iiwa14/config/iiwa14_dual_dynamic_1_config.py) | [IIWA14DualKinematics](module/spark_robot/spark_robot/iiwa14/kinematics/iiwa14_dual_kinematics.py) | 1 | 14 | 14 | 14 |
+| [Gen3SingleDynamic1Config](module/spark_robot/spark_robot/gen3/config/gen3_single_dynamic_1_config.py) | [Gen3SingleKinematics](module/spark_robot/spark_robot/gen3/kinematics/gen3_single_kinematics.py) | 1 | 7 | 7 | 7 |
+| [Gen3SingleDynamic2Config](module/spark_robot/spark_robot/gen3/config/gen3_single_dynamic_2_config.py) | [Gen3SingleKinematics](module/spark_robot/spark_robot/gen3/kinematics/gen3_single_kinematics.py) | 2 | 7 | 14 | 7 |
+| [LRMate200iD3fSingleDynamic1Config](module/spark_robot/spark_robot/lrmate200id/config/lrmate200id_3f_single_dynamic_1_config.py) | [LRMate200iD3fSingleKinematics](module/spark_robot/spark_robot/lrmate200id/kinematics/lrmate200id_3f_single_kinematics.py) | 1 | 6 | 6 | 6 |
+| [LRMate200iD3fSingleDynamic2Config](module/spark_robot/spark_robot/lrmate200id/config/lrmate200id_3f_single_dynamic_2_config.py) | [LRMate200iD3fSingleKinematics](module/spark_robot/spark_robot/lrmate200id/kinematics/lrmate200id_3f_single_kinematics.py) | 2 | 6 | 12 | 6 |
+| [R1LiteUpperDynamic1Config](module/spark_robot/spark_robot/r1lite/config/r1lite_upper_dynamic_1_config.py) | [R1LiteUpperKinematics](module/spark_robot/spark_robot/r1lite/kinematics/r1lite_upper_kinematics.py) | 1 | 15 | 15 | 15 |
+| [R1LiteUpperDynamic2Config](module/spark_robot/spark_robot/r1lite/config/r1lite_upper_dynamic_2_config.py) | [R1LiteUpperKinematics](module/spark_robot/spark_robot/r1lite/kinematics/r1lite_upper_kinematics.py) | 2 | 15 | 30 | 15 |
+| [R1LiteDualArmDynamic1Config](module/spark_robot/spark_robot/r1lite/config/r1lite_dual_dynamic_1_config.py) | [R1LiteDualArmKinematics](module/spark_robot/spark_robot/r1lite/kinematics/r1lite_dual_kinematics.py) | 1 | 12 | 12 | 12 |
+| [R1LiteMobileDynamic1Config](module/spark_robot/spark_robot/r1lite/config/r1lite_mobile_dynamic_1_config.py) | [R1LiteMobileKinematics](module/spark_robot/spark_robot/r1lite/kinematics/r1lite_mobile_kinematics.py) | 1 | 18 | 18 | 18 |
+
 
 
 Each robot config is named as ``Robot Type`` + ``Dynamics``
 
 #### 3.3.1 Robot Type
-``RightArm``: Includes only the 7 DoFs of the right arm. 
+Below are example robot types provided
 
-![g1_sport_mode](/docs/img/g1_right_arm.gif)
+``G1RightArm``: Includes only the 7 DoFs of the right arm. 
 
-``FixedBase`` Includes both arms and 3 DoFs of the waist, totaling 17 DoFs.
+![g1_right_arm](/docs/img/g1_right_arm.gif)
 
-![g1_sport_mode](/docs/img/g1_fixed_base.gif)
+``G1FixedBase`` Includes both arms and 3 DoFs of the waist, totaling 17 DoFs.
 
-``MobileBase``: Wheeled dual-arm manipulator with 3 additional base DoFs — 2D X, 2D Y, and yaw.
+![g1_fixed_base](/docs/img/g1_fixed_base.gif)
 
-![g1_sport_mode](/docs/img/g1_mobile_base.gif)
+``G1MobileBase``: Wheeled dual-arm manipulator with 3 additional base DoFs — 2D X, 2D Y, and yaw.
 
-``SportMode``: Legged dual-arm manipulator with 3 additional base DoFs — 2D X, 2D Y, and yaw.
+![g1_mobile_base](/docs/img/g1_mobile_base.gif)
+
+``G1SportMode``: Legged dual-arm manipulator with 3 additional base DoFs — 2D X, 2D Y, and yaw.
 
 ![g1_sport_mode](/docs/img/g1_sport_mode.gif)
+
+``Gen3Single``: Kinova Gen3 arm with 7 DoFs.
+
+![gen3_single](/docs/img/gen3_single.gif)
+
+``IIWA14Single``: Kuka IIWA14 arm with 7 DoFs.
+
+![iiwa14_single](/docs/img/iiwa14_single.gif)
+
+``LRMate200iD3fSingle``: Fanuc LR Mate 200iD arm with 7 DoFs.
+
+![lrmate200id_single](/docs/img/lrmate200id_3f_single.gif)
+
+``R1LiteUpper``: Galaxea R1 Lite with both arms(6DoFs each arm) and 3 DoFs of the torso.
+
+![r1lite_upper](/docs/img/r1lite_upper.gif)
+
 #### 3.3.2 Dynamics
 ``First-Order Dynamics(Dynamic1)``: Modeled as a single integrator, where the state includes only the positions of the degrees of freedom (DoFs), and the control input is the joint velocity.
 
 ``Second-Order Dynamics(Dynamic2)``: Modeled as a double integrator, where the state includes both the positions and velocities of the DoFs, and the control input is the joint acceleration.
 
-#### Note
-SportMode uses the same control system as MobileBase, but the base movement (X, Y, yaw) is executed via the lower body using a learning-based policy (see [Unitree RL Gym](https://github.com/unitreerobotics/unitree_rl_gym)). This provides a more realistic scenario for mobile safety control.
+**Notes**
+- SportMode uses the same control system as MobileBase, but the base movement (X, Y, yaw) is executed via the lower body using a learning-based policy (see [Unitree RL Gym](https://github.com/unitreerobotics/unitree_rl_gym)). This provides a more realistic scenario for mobile safety control.
+- For second-order dynamics, the state dimension is twice the number of DoFs.
+- Configuration classes with **`Collision`** in the name indicate that **sphere-based collision volumes are integrated**, which are automatically generated using **FOAM** (https://github.com/CoMMALab/foam).
 
 ### 🧪 3.4 [Runner] spark_pipeline
 
@@ -255,15 +331,15 @@ Pipeline runs for a maximal number of steps (-1 for unlimited).
 When env is done, pipeline can choose to reset the env or exit.
 | Pipeline Class | Task | Policy | Safety | Agent |
 |-|-|-|-|-|
-| [G1SafeTeleopPipeline](pipeline/spark_pipeline/g1_safe_teleop/g1_safe_teleop_pipeline.py) | Hands-only teleop; obstacles (ROS, debug) | IK + PID | SSA/CBF/etc. | G1 real, G1 mujoco |
-| [G1BenchmarkPipeline](pipeline/spark_pipeline/g1_benchmark/g1_benchmark_pipeline.py) | Dynamic goal tracking with collision avoidance | IK + PID | SSA/CBF/etc. | G1 mujoco |
+| [TeleopPipeline](pipeline/spark_pipeline/teleop/teleop_pipeline.py) | Hands-only teleop; obstacles (ROS, debug) | IK + PID | SSA/CBF/etc. | G1 real, G1 mujoco |
+| [BenchmarkPipeline](pipeline/spark_pipeline/autonomy/benchmark_pipeline.py) | Dynamic goal tracking with collision avoidance | IK + PID | SSA/CBF/etc. | G1 mujoco |
 ---
 
-#### 3.4.1 G1SafeTeleopPipeline
+#### 3.4.1 TeleopPipeline
 
 run with `python example/run_g1_safe_teleop_sim.py`
 
-Configure the pipeline by modifying the `cfg` object in the python script or modify the config file (`pipeline/spark_pipeline/g1_safe_teleop/g1_safe_teleop_sim_pipeline_config.py`)
+Configure the pipeline by modifying the `cfg` object in the python script or modify the config file (`pipeline/spark_pipeline/teleop/g1_teleop_pipeline_config.py`)
 
 There are several use cases described below.
 
@@ -310,11 +386,11 @@ Grey spheres : obstacle
 The color of robot collision volumes will change if certain constraints are active (yellow: ssa hold state, red: ssa unsafe).
 Critical paris of robot collision volumes and obstacles will also be connected with lines with corresponding color when constraints are active.
 
-#### 3.4.2 G1BenchmarkPipeline
+#### 3.4.2 BenchmarkPipeline
 
 run with `python example/run_g1_benchmark.py`
 
-Configure the pipeline by modifying the `cfg` object in the python script or modify the config file (`pipeline/spark_pipeline/g1_benchmark/g1_benchmark_pipeline_config.py`)
+Configure the pipeline by modifying the `cfg` object in the python script or modify the config file (`pipeline/spark_pipeline/autonomy/g1_benchmark_pipeline_config.py`)
 
 ![g1_benchmark](docs/img/g1_benchmark.gif)
 

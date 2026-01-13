@@ -1,0 +1,4 @@
+<mujoco model="scene">
+  <include file="../gen3/gen3_2f85_single.xml"/>
+  <!-- <include file="../scene/meat_off_grill_world.xml"/> -->
+</mujoco>

@@ -41,9 +41,34 @@ if [[ -z "$ENV_NAME" ]]; then
     handle_error "You must provide an environment name using --name env_name"
 fi
 
+# ------------- env detection / creation -------------
+ENV_EXISTS=false
+if [[ "$ENV_NAME" == "base" ]]; then
+  # 'base' is always present
+  ENV_EXISTS=true
+else
+  # Common location for named envs
+  ENV_PATH="$CONDA_BASE/envs/$ENV_NAME"
+  if [[ -d "$ENV_PATH" ]]; then
+    ENV_EXISTS=true
+  else
+    # Fallback check via JSON (no jq required)
+    if conda env list --json >/tmp/conda_envs.json 2>/dev/null; then
+      if grep -Fq "\"$ENV_PATH\"" /tmp/conda_envs.json; then
+        ENV_EXISTS=true
+      fi
+      rm -f /tmp/conda_envs.json || true
+    fi
+  fi
+fi
+
 # Step 1: Create Conda environment
-echo "Step 1: Creating Conda environment: $ENV_NAME"
-conda create --name $ENV_NAME "python=3.10" -y || handle_error "Failed to create Conda environment $ENV_NAME using 'conda create --name $ENV_NAME python=3.10'"
+if [[ "$ENV_EXISTS" == true ]]; then
+  echo "Step 1: Conda environment '$ENV_NAME' already exists. Activating it."
+else
+  echo "Step 1: Creating Conda environment: $ENV_NAME"
+  conda create --name $ENV_NAME "python=3.10" -y || handle_error "Failed to create Conda environment $ENV_NAME using 'conda create --name $ENV_NAME python=3.10'"
+fi
 
 # Step 2: Activate the environment
 echo "Step 2: Activating Conda environment: $ENV_NAME"
@@ -61,7 +86,7 @@ conda install -c conda-forge pinocchio=3.2.0 -y || handle_error "Failed to insta
 echo "Step 5: Installing core Python packages"
 
 # Declare the array of core Python packages
-core_packages=("scipy" "numba" "casadi" "matplotlib" "mujoco" "pyyaml" "osqp" "tensorboardX" "torch" "scikit-image" "tensorboard" "onnx" "onnx2torch" "ipdb")
+core_packages=("scipy" "numba" "casadi" "matplotlib" "mujoco" "pyyaml" "osqp" "tensorboardX" "torch" "scikit-image" "tensorboard" "onnx" "onnx2torch" "ipdb" "meshcat" "opencv-python")
 
 # Iterate through each package in the array
 for package in "${core_packages[@]}"; do
@@ -77,7 +102,6 @@ spark_modules=(
     "module/spark_agent"
     "module/spark_policy"
     "module/spark_robot"
-    "module/spark_safe"
     "module/spark_task"
     "module/spark_utils"
     "pipeline/"

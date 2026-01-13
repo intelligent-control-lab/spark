@@ -1,0 +1,4 @@
+<mujoco model="r1lite_upper_body_scene">
+  <include file="../r1lite/r1lite_upper_body.xml"/>
+  <!-- <include file="../scene/meat_off_grill_world.xml"/> -->
+</mujoco>
