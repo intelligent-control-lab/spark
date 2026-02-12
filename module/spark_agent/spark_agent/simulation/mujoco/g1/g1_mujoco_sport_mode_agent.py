@@ -291,7 +291,7 @@ class G1MujocoSportModeAgent(MujocoAgent):
         if self.dynamic_order == 1:
             self.sport_cmd = command[-3:]
         elif self.dynamic_order == 2:
-            self.sport_cmd += command[-3:]
+            self.sport_cmd = self.dof_vel_cmd[-3:]
         
         # Clip sport command to avoid extreme values
         self.sport_cmd = np.clip(self.sport_cmd, -0.3, 0.3)

@@ -70,8 +70,8 @@ class BenchmarkPIDPolicy(BasePolicy):
                 control = self.tracking_pos_with_vel(dof_pos_target, dof_vel_target, dof_pos_current, dof_vel_current)
             if "Dynamic2" in self.robot_cfg.__class__.__name__:
                 dof_vel_target = np.zeros_like(dof_vel_fbk)
-                dof_pos_current = dof_pos_fbk
-                dof_vel_current = dof_vel_fbk
+                dof_pos_current = dof_pos_cmd
+                dof_vel_current = dof_vel_cmd
                 control = self.tracking_pos_with_acc(dof_pos_target, dof_vel_target, dof_pos_current, dof_vel_current)
              
             info["ik_success"] = True
