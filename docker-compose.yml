@@ -1,0 +1,72 @@
+# Reusable common service configs
+x-spark-common: &spark-common
+  stdin_open: true
+  tty: true
+  gpus: all
+  shm_size: 2g # increase shared memory size for MuJoCo
+  working_dir: /home/spark/spark
+  user: ${USER}:${USER}
+  environment:
+    # required to prevent excessive thread creation
+    OMP_NUM_THREADS: 4
+    OPENBLAS_NUM_THREADS: 1
+    MKL_NUM_THREADS: 1
+    NUMEXPR_NUM_THREADS: 1
+    BLIS_NUM_THREADS: 1 
+    # for X11 forwarding from container to host
+    DISPLAY: ${DISPLAY}
+  volumes:
+    - ./:/home/spark/spark
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    - ~/.Xauthority:/root/.Xauthority
+  command: /bin/bash
+
+services:
+  # Default Spark container (w/o ROS) 
+  spark:
+    <<: *spark-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: spark
+      args:
+        BASE_IMAGE: ubuntu:24.04
+        WITH_ROS: "false"
+      profiles:
+        - default
+
+  #  Spark container with ROS
+  spark-ros:
+    <<: *spark-common
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: spark
+      args:
+        BASE_IMAGE: osrf/ros:jazzy-simulation
+        WITH_ROS: "true"
+    environment:
+      - ROS_DOMAIN_ID: 0
+    profiles:
+      - ros
+
+  # Spark container configured for WSL2 with NVIDIA GPU and WSLg OpenGL support
+  spark-wsl:
+    <<: *spark-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: spark
+      args:
+        BASE_IMAGE: ubuntu:24.04
+        WITH_ROS: "false"
+    environment:
+      # for WSLg in WSL2
+      GALLIUM_DRIVER: d3d12
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: NVIDIA
+      __NV_PRIME_RENDER_OFFLOAD: 1
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+    profiles:
+      - wsl
+ 
