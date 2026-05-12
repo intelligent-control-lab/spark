@@ -13,6 +13,10 @@ ARG WITH_ROS=false
 
 FROM ${BASE_IMAGE} AS spark-base
 
+# Specify a miniconda3. (see versions here https://repo.anaconda.com/miniconda/)
+ARG CONAD_VERSION=py313_26.1.1-1
+# ARG CONAD_VERSION=latest
+
 # Environment Variables for Conda and CUDA
 ENV DEBIAN_FRONTEND=noninteractive
 ARG CONDA_PREFIX=/opt/conda
@@ -57,7 +61,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86
     && rm -rf /var/lib/apt/lists/*
 
 # Install Miniconda
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-${CONAD_VERSION}-Linux-x86_64.sh -O /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -u -p /opt/conda && \
     rm /tmp/miniconda.sh && \
     conda init --all
@@ -121,7 +125,7 @@ RUN echo "conda activate spark" >> /home/spark/.bashrc
 # Create a new user named 'spark'
 RUN useradd -ms /bin/bash spark
 # switch to the spark user
-RUN chown -R spark:spark /home/spark /opt/conda
+# RUN chown -R spark:spark /home/spark /opt/conda
 USER spark
 
 WORKDIR /home/spark/spark

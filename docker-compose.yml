@@ -5,14 +5,10 @@ x-spark-common: &spark-common
   gpus: all
   shm_size: 2g # increase shared memory size for MuJoCo
   working_dir: /home/spark/spark
-  user: ${USER}:${USER}
+  user: ${UID}:${UID}
   environment:
     # required to prevent excessive thread creation
     OMP_NUM_THREADS: 4
-    OPENBLAS_NUM_THREADS: 1
-    MKL_NUM_THREADS: 1
-    NUMEXPR_NUM_THREADS: 1
-    BLIS_NUM_THREADS: 1 
     # for X11 forwarding from container to host
     DISPLAY: ${DISPLAY}
   volumes:
@@ -32,8 +28,8 @@ services:
       args:
         BASE_IMAGE: ubuntu:24.04
         WITH_ROS: "false"
-      profiles:
-        - default
+    profiles:
+      - default
 
   #  Spark container with ROS
   spark-ros:
@@ -46,7 +42,7 @@ services:
         BASE_IMAGE: osrf/ros:jazzy-simulation
         WITH_ROS: "true"
     environment:
-      - ROS_DOMAIN_ID: 0
+      ROS_DOMAIN_ID: 0
     profiles:
       - ros
 
