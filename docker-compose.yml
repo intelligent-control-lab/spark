@@ -1,30 +1,33 @@
 # Reusable common service configs
-x-spark-common: &spark-common
+x-service-common: &service-common
+  build: &build-common
+    context: .
+    dockerfile: Dockerfile
+    target: spark
   stdin_open: true
   tty: true
   gpus: all
   shm_size: 2g # increase shared memory size for MuJoCo
   working_dir: /home/spark/spark
   user: ${UID}:${UID}
-  environment:
+  environment: &env-common
     # required to prevent excessive thread creation
     OMP_NUM_THREADS: 4
     # for X11 forwarding from container to host
     DISPLAY: ${DISPLAY}
-  volumes:
+  volumes: 
     - ./:/home/spark/spark
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
     - ~/.Xauthority:/root/.Xauthority
   command: /bin/bash
 
+
 services:
   # Default Spark container (w/o ROS) 
   spark:
-    <<: *spark-common
+    <<: *service-common
     build:
-      context: .
-      dockerfile: Dockerfile
-      target: spark
+      <<: *build-common
       args:
         BASE_IMAGE: ubuntu:24.04
         WITH_ROS: "false"
@@ -33,39 +36,34 @@ services:
 
   #  Spark container with ROS
   spark-ros:
-    <<: *spark-common
+    <<: *service-common
     build: 
-      context: .
-      dockerfile: Dockerfile
-      target: spark
+      <<: *build-common
       args:
         BASE_IMAGE: osrf/ros:jazzy-simulation
         WITH_ROS: "true"
     environment:
+      <<: *env-common
       ROS_DOMAIN_ID: 0
     profiles:
       - ros
 
   # Spark container configured for WSL2 with NVIDIA GPU and WSLg OpenGL support
   spark-wsl:
-    <<: *spark-common
+    <<: *service-common
     build:
-      context: .
-      dockerfile: Dockerfile
-      target: spark
+      <<: *build-common
       args:
         BASE_IMAGE: ubuntu:24.04
         WITH_ROS: "false"
     environment:
-      # required to prevent excessive thread creation
-      OMP_NUM_THREADS: 4
-      # for X11 forwarding from container to host
-      DISPLAY: ${DISPLAY}
+      <<: *env-common
       # for WSLg in WSL2
       GALLIUM_DRIVER: d3d12
       MESA_D3D12_DEFAULT_ADAPTER_NAME: NVIDIA
       __NV_PRIME_RENDER_OFFLOAD: 1
     volumes:
+      - ./:/home/spark/spark
       - /usr/lib/wsl:/usr/lib/wsl:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
     profiles:
