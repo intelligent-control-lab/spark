@@ -57,12 +57,17 @@ services:
         BASE_IMAGE: ubuntu:24.04
         WITH_ROS: "false"
     environment:
+      # required to prevent excessive thread creation
+      OMP_NUM_THREADS: 4
+      # for X11 forwarding from container to host
+      DISPLAY: ${DISPLAY}
       # for WSLg in WSL2
       GALLIUM_DRIVER: d3d12
       MESA_D3D12_DEFAULT_ADAPTER_NAME: NVIDIA
       __NV_PRIME_RENDER_OFFLOAD: 1
     volumes:
       - /usr/lib/wsl:/usr/lib/wsl:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     profiles:
       - wsl
  
