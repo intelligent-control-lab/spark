@@ -9,7 +9,7 @@ x-service-common: &service-common
   gpus: all
   shm_size: 2g # increase shared memory size for MuJoCo
   working_dir: /home/spark/spark
-  user: ${UID}:${UID}
+  user: ${UID_UID}
   environment: &env-common
     # required to prevent excessive thread creation
     OMP_NUM_THREADS: 4
