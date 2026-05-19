@@ -42,6 +42,7 @@ services:
       args:
         BASE_IMAGE: osrf/ros:jazzy-simulation
         WITH_ROS: "true"
+        PYTHON_VERSION: 3.12
     environment:
       <<: *env-common
       ROS_DOMAIN_ID: 0

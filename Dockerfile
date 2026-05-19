@@ -96,6 +96,7 @@ CMD [ "/bin/bash" ]
 ####################
 
 FROM spark-base AS spark
+ARG PYTHON_VERSION=3.10
 ARG USE_REMOTE_SRC=false
 
 WORKDIR /home/spark
@@ -115,7 +116,7 @@ RUN  cd spark && \
 chmod +x install.sh && \
 ./install.sh \
 --name spark \
---python 3.10 \
+--python ${PYTHON_VERSION} \
 # Install ROS dependencies if WITH_ROS is true
 $(if [ "${WITH_ROS}" = "true" ]; then echo "--ros"; fi)
 
