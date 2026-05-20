@@ -1,6 +1,5 @@
 ARG BASE_IMAGE=ubuntu:24.04
 # ARG BASE_IMAGE=osrf/ros:jazzy-simulation
-ARG WITH_ROS=false
 
 ####################
 # 
@@ -13,6 +12,7 @@ ARG WITH_ROS=false
 
 FROM ${BASE_IMAGE} AS spark-base
 
+ARG WITH_ROS=false
 # Specify a miniconda3. (see versions here https://repo.anaconda.com/miniconda/)
 ARG CONAD_VERSION=py313_26.1.1-1
 # ARG CONAD_VERSION=latest
@@ -64,7 +64,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-${CONAD_VERSION}-Linux-x86_64.sh -O /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -u -p /opt/conda && \
     rm /tmp/miniconda.sh && \
-    conda init --all
+    conda init --all --system
 
 
 # Install ROS 2 dependencies
@@ -96,6 +96,7 @@ CMD [ "/bin/bash" ]
 ####################
 
 FROM spark-base AS spark
+ARG WITH_ROS=false
 ARG PYTHON_VERSION=3.10
 ARG USE_REMOTE_SRC=false
 
@@ -120,14 +121,15 @@ chmod +x install.sh && \
 # Install ROS dependencies if WITH_ROS is true
 $(if [ "${WITH_ROS}" = "true" ]; then echo "--ros"; fi)
 
-# Update bash config to activate the conda environment on login
-RUN echo "conda activate spark" >> /home/spark/.bashrc
-
 # Create a new user named 'spark'
-RUN useradd -ms /bin/bash spark
+# RUN useradd -ms /bin/bash spark
 # switch to the spark user
 # RUN chown -R spark:spark /home/spark /opt/conda
-USER spark
+# USER spark
+
+# Update bash config to activate the conda environment on login
+RUN conda init --all 
+RUN echo "conda activate spark" >> /root/.bashrc
 
 WORKDIR /home/spark/spark
 
