@@ -9,7 +9,6 @@ x-service-common: &service-common
   gpus: all
   shm_size: 2g # increase shared memory size for MuJoCo
   working_dir: /home/spark/spark
-  user: ${UID_UID}
   environment: &env-common
     # required to prevent excessive thread creation
     OMP_NUM_THREADS: 4
@@ -24,7 +23,7 @@ x-service-common: &service-common
 
 services:
   # Default Spark container (w/o ROS) 
-  spark:
+  spark-default:
     <<: *service-common
     build:
       <<: *build-common
@@ -69,4 +68,3 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
     profiles:
       - wsl
- 
