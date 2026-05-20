@@ -14,4 +14,4 @@ case "$profile" in
 		;;
 esac
 
-UID_UID=$(id -u):$(id -g) docker compose --profile "$profile" up "$@"
+UID_UID=$(id -u):$(id -g) docker compose run spark-${profile} "$@" 
