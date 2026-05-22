@@ -141,9 +141,6 @@ if using docker:
 ./run_with_docker.sh default example/g1/run_g1_safe_teleop_sim.py
 ```
 
-### not too great
-UID_UID=$(id -u):$(id -g) docker compose --profile default run spark conda init && activate spark && python example/g1/run_g1_safe_teleop_sim.py
-
 ### 2.2 Benchmark Pipeline
 To run a implemented [benchmark pipeline](pipeline/spark_pipeline/autonomy/benchmark_pipeline.py), you can run:
 ```
