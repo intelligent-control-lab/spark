@@ -82,6 +82,49 @@ cd unitree_sdk2_python
 pip install -e .
 ```
 
+### 1.3 Docker
+
+If using docker, local installation should be skipped as dependencies are installed in the docker container. Instead, see the docker section under "Quick Start". 
+
+#### Building the Image
+The container is built automatically (or started from the local cache) when starting a service listed in the `docker-compose.yml` config file. The container has miniconda3 installed, along with SPARK and it's dependencies. 
+
+If you want want to manually build an image, e.g., to give it an explicit tag, do so using the below command:
+
+```bash
+docker build --target spark -t <image_tag> --build-arg BASE_IMAGE=<base_image> --build-arg WITH_ROS=<with_ros> --build-arg PYTHON_VERSION=<python_version> .
+```
+The build args are explained as follows:
+
+- image_tag: the name for the image
+- BASE_IMAGE: the image used during the build stage when runtime and system dependencies are installed. Suggested values are: 
+  - a version of ubuntu (e.g., `ubuntu:24.04`),
+  - ros or osrf/ros image (e.g., `osrf/ros:jazzy-simulation`)
+- WITH_ROS: set to either `true` if using a ROS base image
+- PYTHON_VERSION: the python version for the conda environment created during installation
+  - If using a ROS base image, ensure this matches the python version required by the ROS distro in the base image (e.g., 3.12 for ROS jazzy) 
+
+#### Adding Additional Dependencies
+If desiring to add additional system dependencies/packages, such as ROS packages, add them to a new RUN command in the `Dockerfile`, within the `spark-base` build stage, for example:
+
+```dockerfile
+# Install ROS 2 dependencies
+# 
+RUN if [ "${WITH_ROS}" = "true" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends \
+    ros-${ROS_DISTRO}-rviz2 \
+    ros-${ROS_DISTRO}-rviz-default-plugins \
+    ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+...
+
+CMD [ "/bin/bash" ]
+```
+
+
 ---
 ## 🚀 2 Quick Start
 
@@ -90,6 +133,12 @@ After installation, try running a implemented [safe teleoperation pipeline](pipe
 A quick example is:
 ```
 python example/run_g1_safe_teleop_sim.py
+```
+
+if using docker:
+
+```bash
+./run_with_docker.sh default example/g1/run_g1_safe_teleop_sim.py
 ```
 
 ### 2.2 Benchmark Pipeline
@@ -140,6 +189,26 @@ pipeline = Pipeline(cfg)
 # Run the pipeline
 pipeline.run()
 ```
+
+### 2.4 Docker 
+
+The `run_with_docker.sh` script is provided to simplify running pipelines in docker containers. To use the script, invoke it with the image variant and the path to the spark run file. 
+> See the installation section for more details on how the image variants are configured and built.
+
+```bash
+./run_with_docker.sh {ros|wsl|default} path/to/run/file
+```
+
+The run file path is relative to the root of the repo. So, to run the G1 Safe Teleoperation example within the default container variant, use:
+
+```bash
+./run_with_docker.sh default example/g1/run_g1_safe_teleop_sim.py
+```
+
+There are three container variants. :
+- default: use this if you don't need ROS
+- ros: use this if you need ROS
+- wsl: use this if you're running in WSL2 on Windows
 
 ---
 ## 🧩 3 Infrastructure

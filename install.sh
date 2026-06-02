@@ -13,6 +13,7 @@ function handle_error {
 # Default values
 INSTALL_ROS=false
 ENV_NAME=""
+PYTHON_VERSION="3.10"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -28,6 +29,14 @@ while [[ $# -gt 0 ]]; do
                 handle_error "You must provide an environment name after --name."
             fi
             ENV_NAME="$1"
+            shift
+            ;;
+      --python|--py)
+            shift
+            if [[ -z "$1" || "$1" == "--"* ]]; then
+              handle_error "You must provide a python version after --python (e.g. 3.10)."
+            fi
+            PYTHON_VERSION="$1"
             shift
             ;;
         *)
@@ -66,8 +75,8 @@ fi
 if [[ "$ENV_EXISTS" == true ]]; then
   echo "Step 1: Conda environment '$ENV_NAME' already exists. Activating it."
 else
-  echo "Step 1: Creating Conda environment: $ENV_NAME"
-  conda create --name $ENV_NAME "python=3.10" -y || handle_error "Failed to create Conda environment $ENV_NAME using 'conda create --name $ENV_NAME python=3.10'"
+  echo "Step 1: Creating Conda environment: $ENV_NAME (python=$PYTHON_VERSION)"
+  conda create --name "$ENV_NAME" "python=$PYTHON_VERSION" -y || handle_error "Failed to create Conda environment $ENV_NAME using 'conda create --name $ENV_NAME python=$PYTHON_VERSION'"
 fi
 
 # Step 2: Activate the environment
