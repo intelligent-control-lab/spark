@@ -1,0 +1,84 @@
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp
+index 87bcc17..ea75d7e 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp
+@@ -187,6 +187,9 @@ class StateLogger {
+   size_t capacity() const;
+   size_t size() const;
+ 
++  // Clear recurrent observation history while preserving logger configuration.
++  void Clear();
++
+   // Returns copies of the latest n entries (up to available size)
+   // If newest_first is true (default), returns [newest, ..., oldest]; otherwise [oldest, ..., newest]
+   std::vector<Entry> GetLatest(size_t n, bool newest_first = true) const;
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp
+index d9cf854..6730dfb 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp
+@@ -177,6 +177,14 @@ size_t StateLogger::size() const {
+   return size_;
+ }
+ 
++void StateLogger::Clear() {
++  std::lock_guard<std::mutex> lock(ring_mutex_);
++  // Keep indexed storage allocated for the next pushToRing_ call.
++  ring_.clear();
++  ring_.resize(capacity_);
++  start_ = 0;
++  size_ = 0;
++  next_index_.store(0);
++}
++
+ std::vector<Entry> StateLogger::GetLatest(size_t n, bool newest_first) const {
+   std::lock_guard<std::mutex> lock(ring_mutex_);
+   const size_t count = n < size_ ? n : size_;
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+@@ -264,2 +264,42 @@
+     void ApplySparkPolicyRequest(const nlohmann::json& request) {
++      if (request.value("reset", false)) {
++        if (state_logger_) {
++          state_logger_->Clear();
++        }
++        // Drop world-frame planner state from the preceding Spark episode.
++        // Use the same lock order as CurrentFrameAdvancement().
++        {
++          std::lock_guard<std::mutex> motion_lock(current_motion_mutex_);
++          if (planner_) {
++            std::lock_guard<std::mutex> planner_lock(planner_->planner_motion_mutex_);
++            planner_->planner_state_.initialized = false;
++            planner_->motion_available_ = false;
++            planner_->gen_frame_ = 0;
++            planner_->planner_motion_50hz_.timesteps = 0;
++          }
++          if (planner_motion_) {
++            planner_motion_->timesteps = 0;
++          }
++          current_motion_ = motion_reader_.GetMotionShared(
++            motion_reader_.current_motion_index_);
++          current_frame_ = 0;
++          saved_frame_for_observation_window_ = 0;
++        }
++        last_movement_state_ = MovementState(
++          static_cast<int>(LocomotionMode::IDLE),
++          {0.0f, 0.0f, 0.0f},
++          {1.0f, 0.0f, 0.0f},
++          -1.0f,
++          -1.0f);
++        replan_interval_counter_ = 0.0f;
++        // Clear recurrent policy inputs from the preceding episode.
++        motor_command_buffer_.Clear();
++        movement_state_buffer_.SetData(MovementState());
++        token_state_data_.assign(token_state_data_.size(), 0.0);
++        reinitialize_heading_ = true;
++        logging_counter_ = 0;
++        first_token_received_ = false;
++        idle_readapt_stored_ = false;
++        idle_readapt_state_ = IdleReadaptState::IDLE;
++      }
+       std::vector<double> default_actuated(default_angles.begin(), default_angles.end());
+@@ -3519,1 +3559,1 @@
+-              const int blend_num_frames = 8;
++              const int blend_num_frames = 20;

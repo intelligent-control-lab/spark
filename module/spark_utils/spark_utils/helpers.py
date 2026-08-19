@@ -1,39 +1,44 @@
 import os
+import importlib
+
 
 def initialize_class(class_cfg, **kwargs):
-    '''
+    """
     Initialize a class from a configuration object.
     Also pass any additional keyword arguments to the class constructor
-    '''
-    
-    class_cfg_dict = class_to_dict(class_cfg)
-    
-    if 'class_name' not in class_cfg_dict:
-        raise ValueError(f'class_name not found in {class_cfg}')
+    """
 
-    class_name = class_cfg_dict.pop('class_name')
-    
+    class_cfg_dict = class_to_dict(class_cfg)
+
+    if "class_name" not in class_cfg_dict:
+        raise ValueError(f"class_name not found in {class_cfg}")
+
+    class_name = class_cfg_dict.pop("class_name")
+
     if class_name is None:
         return None
-    
+
+    if "." in class_name:
+        module_name, attr_name = class_name.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        return getattr(module, attr_name)(**{**class_cfg_dict, **kwargs})
+
     import spark_task
     import spark_policy
-    # import spark_policy.safe.safe_controller as safe_controller
-    # import spark_policy.safe.safe_algo as safe_algo
     import spark_agent
     import spark_robot
 
     for module in [spark_policy, spark_agent, spark_robot, spark_task]:
-        
         if hasattr(module, class_name):
             class_name = getattr(module, class_name)
 
-            return class_name(**{ **class_cfg_dict, **kwargs })
-    
-    raise ValueError(f'Class {class_name} not found in any of the modules')
+            return class_name(**{**class_cfg_dict, **kwargs})
+
+    raise ValueError(f"Class {class_name} not found in any of the modules")
+
 
 def class_to_dict(obj) -> dict:
-    if not  hasattr(obj,"__dict__"):
+    if not hasattr(obj, "__dict__"):
         return obj
     result = {}
     for key in dir(obj):
@@ -49,11 +54,12 @@ def class_to_dict(obj) -> dict:
         result[key] = element
     return result
 
+
 def update_class_attributes(obj, attrs: dict):
-    
+
     for key, value in attrs.items():
         if not hasattr(obj, key):
-            print(f'Attribute {key} not found in {obj}, adding to {obj}')
+            print(f"Attribute {key} not found in {obj}, adding to {obj}")
         setattr(obj, key, value)
-    
+
     return obj

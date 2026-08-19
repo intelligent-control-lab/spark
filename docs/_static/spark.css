@@ -1,0 +1,54 @@
+:root {
+  --spark-orange: #ef5b2a;
+}
+
+.sidebar-brand-text {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.sidebar-logo {
+  max-height: 4.5rem;
+}
+
+.spark-hero {
+  padding: 2.5rem;
+  margin: 1rem 0 2rem;
+  border-radius: 1rem;
+  color: white;
+  background:
+    radial-gradient(circle at 85% 15%, rgb(255 255 255 / 18%), transparent 30%),
+    linear-gradient(135deg, #222d38, #873317 70%, var(--spark-orange));
+}
+
+.spark-hero h1 {
+  margin-top: 0;
+  color: white;
+}
+
+.spark-hero p {
+  max-width: 48rem;
+  font-size: 1.12rem;
+}
+
+.spark-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem !important;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.spark-demo {
+  display: block;
+  width: 100%;
+  max-height: 28rem;
+  margin: 0.25rem auto 1rem;
+  border-radius: 0.5rem;
+  object-fit: contain;
+  background: #0d1117;
+}
+
+.sd-card:has(.spark-demo) {
+  overflow: hidden;
+}

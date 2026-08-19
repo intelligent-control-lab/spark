@@ -1,0 +1,4 @@
+<mujoco model="scene">
+  <include file="../kinova_gen3/gen3_2f85_dual.xml"/>
+  <include file="../kinova_gen3/gen3_meat_off_grill_world.xml"/>
+</mujoco>

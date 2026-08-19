@@ -1,70 +1,116 @@
-# Reusable common service configs
-x-service-common: &service-common
-  build: &build-common
-    context: .
-    dockerfile: Dockerfile
-    target: spark
+name: spark
+
+x-spark-common: &spark-common
   stdin_open: true
   tty: true
-  gpus: all
-  shm_size: 2g # increase shared memory size for MuJoCo
-  working_dir: /home/spark/spark
-  environment: &env-common
-    # required to prevent excessive thread creation
-    OMP_NUM_THREADS: 4
-    # for X11 forwarding from container to host
-    DISPLAY: ${DISPLAY}
-  volumes: 
-    - ./:/home/spark/spark
+  shm_size: "2gb"
+  working_dir: /workspace/spark
+  environment: &spark-environment
+    DISPLAY: ${DISPLAY:-}
+    MUJOCO_GL: ${MUJOCO_GL:-glx}
+    OMP_NUM_THREADS: ${OMP_NUM_THREADS:-4}
+    XAUTHORITY: /tmp/.Xauthority
+  volumes:
+    - .:/workspace/spark
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    - ~/.Xauthority:/root/.Xauthority
-  command: /bin/bash
-
+    - ${XAUTHORITY:-/dev/null}:/tmp/.Xauthority:ro
 
 services:
-  # Default Spark container (w/o ROS) 
-  spark-default:
-    <<: *service-common
+  spark-core:
+    <<: *spark-common
+    image: spark:2.0.0-core
     build:
-      <<: *build-common
+      context: .
+      target: spark
       args:
-        BASE_IMAGE: ubuntu:24.04
-        WITH_ROS: "false"
-    profiles:
-      - default
+        BASE_IMAGE: python:3.10-slim-bookworm
+        SPARK_VERSION: 2.0.0
+        SPARK_PYTHON: "3.10"
+        SPARK_PROFILE: core
+        SPARK_WITH_DEV: ${SPARK_WITH_DEV:-false}
+    profiles: [core]
 
-  #  Spark container with ROS
+  # Backward-compatible name for the v1 Docker PR's default variant. It now
+  # uses the v2 profile installer and does not require an NVIDIA runtime.
+  spark-default:
+    <<: *spark-common
+    image: spark:2.0.0-mujoco
+    build:
+      context: .
+      target: spark
+      args:
+        BASE_IMAGE: python:3.10-slim-bookworm
+        SPARK_VERSION: 2.0.0
+        SPARK_PYTHON: "3.10"
+        SPARK_PROFILE: mujoco
+        SPARK_WITH_TORCH: ${SPARK_WITH_TORCH:-false}
+        SPARK_WITH_LEARNED: ${SPARK_WITH_LEARNED:-false}
+        SPARK_WITH_DEV: ${SPARK_WITH_DEV:-false}
+    profiles: [default, mujoco]
+
+  spark-isaac:
+    <<: *spark-common
+    image: spark:2.0.0-isaac
+    build:
+      context: .
+      target: spark
+      args:
+        BASE_IMAGE: python:3.12-slim-bookworm
+        SPARK_VERSION: 2.0.0
+        SPARK_PYTHON: "3.12"
+        SPARK_PROFILE: isaac
+        SPARK_WITH_DEV: ${SPARK_WITH_DEV:-false}
+    environment:
+      <<: *spark-environment
+      OMNI_KIT_ACCEPT_EULA: ${OMNI_KIT_ACCEPT_EULA:-NO}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: graphics,compute,utility
+    gpus: all
+    profiles: [isaac]
+
   spark-ros:
-    <<: *service-common
-    build: 
-      <<: *build-common
+    <<: *spark-common
+    image: spark:2.0.0-ros-jazzy
+    build:
+      context: .
+      target: spark
       args:
         BASE_IMAGE: osrf/ros:jazzy-simulation
-        WITH_ROS: "true"
-        PYTHON_VERSION: 3.12
+        SPARK_VERSION: 2.0.0
+        SPARK_PYTHON: "3.12"
+        SPARK_PROFILE: mujoco
+        SPARK_WITH_ROS: "true"
+        SPARK_WITH_DEV: ${SPARK_WITH_DEV:-false}
     environment:
-      <<: *env-common
-      ROS_DOMAIN_ID: 0
-    profiles:
-      - ros
+      <<: *spark-environment
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+    network_mode: host
+    profiles: [ros]
 
-  # Spark container configured for WSL2 with NVIDIA GPU and WSLg OpenGL support
+  # WSL keeps the v1 profile name while sharing the v2 MuJoCo image and
+  # dependency contract. The NVIDIA Container Toolkit supplies the GPU.
   spark-wsl:
-    <<: *service-common
+    <<: *spark-common
+    image: spark:2.0.0-mujoco-wsl
     build:
-      <<: *build-common
+      context: .
+      target: spark
       args:
-        BASE_IMAGE: ubuntu:24.04
-        WITH_ROS: "false"
+        BASE_IMAGE: python:3.10-slim-bookworm
+        SPARK_VERSION: 2.0.0
+        SPARK_PYTHON: "3.10"
+        SPARK_PROFILE: mujoco
+        SPARK_WITH_DEV: ${SPARK_WITH_DEV:-false}
     environment:
-      <<: *env-common
-      # for WSLg in WSL2
+      <<: *spark-environment
       GALLIUM_DRIVER: d3d12
       MESA_D3D12_DEFAULT_ADAPTER_NAME: NVIDIA
-      __NV_PRIME_RENDER_OFFLOAD: 1
+      __NV_PRIME_RENDER_OFFLOAD: "1"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: graphics,compute,utility
+    gpus: all
     volumes:
-      - ./:/home/spark/spark
+      - .:/workspace/spark
       - /usr/lib/wsl:/usr/lib/wsl:ro
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    profiles:
-      - wsl
+    profiles: [wsl]

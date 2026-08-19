@@ -1,0 +1,5 @@
+# Preserve vendored runtimes, third-party patches, and upstream robot assets
+# byte-for-byte without treating their source whitespace as SPARK style errors.
+/module/spark_policy/spark_policy/control/whole_body/unitree_g1/wbt/runtime/** -whitespace
+/module/spark_robot/resources/** -whitespace
+/third_party/** -whitespace

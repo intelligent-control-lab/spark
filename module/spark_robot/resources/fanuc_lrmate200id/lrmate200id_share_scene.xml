@@ -1,0 +1,72 @@
+<mujoco model="share_scene">
+
+  <asset>
+    <mesh name="rc_block_mesh" file="../../objects/share/rc_block.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="cc_block_mesh" file="../../objects/share/cc_block.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="rr_block_mesh" file="../../objects/share/rr_block.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bolt_mesh"     file="../../objects/share/bolt.STL"     scale="0.001 0.001 0.001"/>
+    <mesh name="nut_mesh"      file="../../objects/share/nut.STL"      scale="0.001 0.001 0.001"/>
+  </asset>
+
+  <worldbody>
+
+   <body name="green_plate"  pos="0.8 0.3 0.0" euler="0 0 0">
+      <geom type="box" size="0.07 0.07 0.003" rgba="0 1 0 0.8" contype="0" conaffinity="0"/>
+    </body>
+    <body name="blue_plate"   pos="0.8 0.1 0.0" euler="0 0 0">
+      <geom type="box" size="0.07 0.07 0.003" rgba="0 0 1 0.8" contype="0" conaffinity="0"/>
+    </body>
+    <body name="red_plate"    pos="0.8 -0.1 0.0" euler="0 0 0">
+      <geom type="box" size="0.07 0.07 0.003" rgba="1 0 0 0.8" contype="0" conaffinity="0"/>
+    </body>
+    <body name="yellow_plate" pos="0.8 -0.3 0.0" euler="0 0 0">
+      <geom type="box" size="0.07 0.07 0.003" rgba="1 1 0 0.8" contype="0" conaffinity="0"/>
+    </body>
+
+    <body name="rc_block_1" pos="0.4 0.0 0.11" euler="0 1.570796 0">
+      <freejoint/>
+      <geom type="mesh" mesh="rc_block_mesh" rgba="1 0 0 1" mass="0.05"/>
+    </body>
+
+    <body name="cc_block_1" pos="0.352 -0.354 0.0" euler="0 0 2.530727">
+      <freejoint/>
+      <geom type="mesh" mesh="cc_block_mesh" rgba="0 1 0 1" mass="0.05"/>
+    </body>
+
+    <body name="cc_block_2" pos="0.541 -0.26 0.0" euler="0 0 0.436332">
+      <freejoint/>
+      <geom type="mesh" mesh="cc_block_mesh" rgba="0 1 0 1" mass="0.05"/>
+    </body>
+
+    <body name="cc_block_3" pos="0.542 0.134 0.0" euler="0 0 1.832596">
+      <freejoint/>
+      <geom type="mesh" mesh="cc_block_mesh" rgba="0 1 0 1" mass="0.05"/>
+    </body>
+
+    <body name="rr_block_1" pos="0.297 0.144 0.0" euler="0 0 0.436332">
+      <freejoint/>
+      <geom type="mesh" mesh="rr_block_mesh" rgba="0 0 1 1" mass="0.05"/>
+    </body>
+
+    <body name="bolt_1" pos="0.622 0.3 0.03" euler="0 0 2.373648">
+      <freejoint/>
+      <geom type="mesh" mesh="bolt_mesh" rgba="1 0.5 0 1" mass="0.03"/>
+    </body>
+
+    <body name="nut_1" pos="0.544 -0.121 0.03" euler="0 0 4.590216">
+      <freejoint/>
+      <geom type="mesh" mesh="nut_mesh" rgba="1 1 0 1" mass="0.02"/>
+    </body>
+
+    <body name="nut_2" pos="0.324 0.294 0.03" euler="0 0 0">
+      <freejoint/>
+      <geom type="mesh" mesh="nut_mesh" rgba="1 1 0 1" mass="0.02"/>
+    </body>
+
+    <body name="nut_3" pos="0.359 -0.186 0.03" euler="0 0 4.590216">
+      <freejoint/>
+      <geom type="mesh" mesh="nut_mesh" rgba="1 1 0 1" mass="0.02"/>
+    </body>
+
+  </worldbody>
+</mujoco>

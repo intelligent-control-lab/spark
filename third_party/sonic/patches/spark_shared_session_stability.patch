@@ -1,0 +1,78 @@
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+@@ -3372,7 +3372,56 @@
+         const std::string payload = response.dump();
+         socket.send(zmq::buffer(payload), zmq::send_flags::none);
+       }
+     }
++
++    void RunSparkPolicySharedSessionServer(
++        const std::string& endpoint,
++        const std::vector<G1Deploy*>& sessions) {
++      if (sessions.empty()) {
++        throw std::runtime_error("SPARK shared server requires at least one session");
++      }
++      zmq::context_t context(1);
++      zmq::socket_t socket(context, zmq::socket_type::rep);
++      socket.set(zmq::sockopt::linger, 0);
++      socket.bind(endpoint);
++      std::cout << "[SparkPolicySharedServer] Listening on " << endpoint
++                << " with " << sessions.size()
++                << " isolated sessions and shared TensorRT engines" << std::endl;
++      while (!sessions.front()->operator_state.stop) {
++        zmq::message_t message;
++        if (!socket.recv(message, zmq::recv_flags::none).has_value()) continue;
++        nlohmann::json response;
++        try {
++          const auto envelope = nlohmann::json::parse(
++              static_cast<const char*>(message.data()),
++              static_cast<const char*>(message.data()) + message.size());
++          const auto& requests = envelope.is_array()
++              ? envelope : envelope.at("requests");
++          if (!requests.is_array() || requests.size() != sessions.size()) {
++            throw std::runtime_error(
++                "batch request count must equal configured SPARK session count");
++          }
++          nlohmann::json responses = nlohmann::json::array();
++          for (size_t index = 0; index < sessions.size(); ++index) {
++            std::string error;
++            bool ok = false;
++            try {
++              sessions[index]->ApplySparkPolicyRequest(requests[index]);
++              ok = sessions[index]->RunSparkPolicyTick(error);
++            } catch (const std::exception& e) {
++              error = e.what();
++            }
++            responses.push_back(sessions[index]->BuildSparkPolicyResponse(
++                requests[index], ok, error));
++          }
++          response = {{"ok", true}, {"responses", std::move(responses)}};
++        } catch (const std::exception& e) {
++          response = {{"ok", false}, {"error", e.what()}};
++        }
++        const std::string payload = response.dump();
++        socket.send(zmq::buffer(payload), zmq::send_flags::none);
++      }
++    }
+ 
+     /// Write a zero-torque, damping-only motor command (safe shutdown pose).
+     void CreateDampingCommand() {
+@@ -5186,15 +5234,8 @@
+       std::cout << "[SparkPolicyBatchServer] Initialized session "
+                 << (index + 1) << "/" << spark_policy_batch_size << std::endl;
+     }
+-    if (spark_batch_policy_file.empty() || spark_batch_encoder_file.empty() ||
+-        spark_batch_planner_file.empty()) {
+-      throw std::runtime_error(
+-          "dynamic batch policy, encoder, and planner files are required for batch mode");
+-    }
+-    sessions.front()->RunSparkPolicyBatchServer(
+-        spark_policy_endpoint, sessions, spark_batch_policy_file,
+-        spark_batch_encoder_file, spark_batch_planner_file,
+-        policyFp16, plannerFp16);
++    sessions.front()->RunSparkPolicySharedSessionServer(
++        spark_policy_endpoint, sessions);
+     for (auto& session : owned_sessions) session->Stop();
+     return 0;
+   }

@@ -1,0 +1,464 @@
+{
+  "case_count": 8,
+  "description": "Curated SPARK v2 README demonstrations",
+  "duration_seconds": 16.0,
+  "expected_case_count": 8,
+  "fps": 10.0,
+  "pass_count": 8,
+  "resolution": [
+    960,
+    540
+  ],
+  "results": [
+    {
+      "backend": "mujoco",
+      "duration_seconds": 16.0,
+      "end_effector_motion_span": 1.0026359718974414,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 1412133,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/kinova_gen3__single_arm__mujoco_teleop.gif",
+      "interaction_max_safe_correction": [
+        0.2600124206605577,
+        0.5393231853599695,
+        0.49184379481041074
+      ],
+      "interaction_safety_trigger_steps": [
+        43,
+        69,
+        131
+      ],
+      "left_end_effector_motion_span": 0.0,
+      "mode": "mujoco_teleop",
+      "num_envs": 1,
+      "palette_optimized": true,
+      "policy_config": "TeleopPIDPolicy",
+      "profile": "kinova_gen3__single_arm",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "robot": "kinova_gen3",
+      "robot_config": "KinovaGen3SingleArmDynamic1CollisionConfig",
+      "safety_observed_steps": 795,
+      "safety_trigger_steps": 280,
+      "status": "PASS",
+      "variant": "single_arm",
+      "wall_seconds": 24.29551895901386,
+      "workflow": "teleop"
+    },
+    {
+      "backend": "mujoco",
+      "duration_seconds": 16.0,
+      "end_effector_motion_span": 0.10179197754852382,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 2051722,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/kuka_iiwa14__dual_arm__mujoco_teleop.gif",
+      "interaction_max_safe_correction": [
+        0.33745114281740907,
+        0.5279328824912901,
+        0.19795333019181677
+      ],
+      "interaction_safety_trigger_steps": [
+        26,
+        45,
+        16
+      ],
+      "left_end_effector_motion_span": 0.1019020647628468,
+      "mode": "mujoco_teleop",
+      "num_envs": 1,
+      "palette_optimized": true,
+      "policy_config": "TeleopPIDPolicy",
+      "profile": "kuka_iiwa14__dual_arm",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "robot": "kuka_iiwa14",
+      "robot_config": "KukaIIWA14DualArmDynamic1CollisionConfig",
+      "safety_observed_steps": 795,
+      "safety_trigger_steps": 130,
+      "status": "PASS",
+      "variant": "dual_arm",
+      "wall_seconds": 24.153873634990305,
+      "workflow": "teleop"
+    },
+    {
+      "backend": "mujoco",
+      "duration_seconds": 16.0,
+      "end_effector_motion_span": 0.25407080139409904,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 2474938,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/fanuc_lrmate200id__single_arm__mujoco_teleop.gif",
+      "interaction_max_safe_correction": [
+        0.25951870473002064,
+        0.3552193217862137,
+        0.6070637652409003
+      ],
+      "interaction_safety_trigger_steps": [
+        49,
+        57,
+        127
+      ],
+      "left_end_effector_motion_span": 0.0,
+      "mode": "mujoco_teleop",
+      "num_envs": 1,
+      "palette_optimized": true,
+      "policy_config": "TeleopPIDPolicy",
+      "profile": "fanuc_lrmate200id__single_arm",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "robot": "fanuc_lrmate200id",
+      "robot_config": "FanucLRMate200iDSingleArmDynamic1CollisionConfig",
+      "safety_observed_steps": 795,
+      "safety_trigger_steps": 253,
+      "status": "PASS",
+      "variant": "single_arm",
+      "wall_seconds": 25.173690530995373,
+      "workflow": "teleop"
+    },
+    {
+      "backend": "mujoco",
+      "duration_seconds": 16.0,
+      "end_effector_motion_span": 0.686831580228505,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 3329435,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/agibot_g1__mobile_base__mujoco_teleop.gif",
+      "interaction_max_safe_correction": [
+        0.25925759284035643,
+        0.1866085664473842,
+        0.5582302390816358
+      ],
+      "interaction_safety_trigger_steps": [
+        47,
+        119,
+        60
+      ],
+      "left_end_effector_bounds": [
+        [
+          0.22072774861134217,
+          0.2598133380500424,
+          0.4230970660613691
+        ],
+        [
+          0.93766509963722,
+          0.4594481820217208,
+          0.9210704335079469
+        ]
+      ],
+      "left_end_effector_motion_span": 0.7169373510258779,
+      "mode": "mujoco_teleop",
+      "num_envs": 1,
+      "palette_optimized": true,
+      "policy_config": "TeleopPIDPolicy",
+      "profile": "agibot_g1__mobile_base",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "right_end_effector_bounds": [
+        [
+          0.22072473067003723,
+          -0.28901264912374924,
+          0.4230980069938166
+        ],
+        [
+          0.9075563108985422,
+          -0.20318855289711785,
+          0.985117592675105
+        ]
+      ],
+      "robot": "agibot_g1",
+      "robot_config": "AgiBotG1MobileBaseDynamic1Config",
+      "safety_observed_steps": 795,
+      "safety_trigger_steps": 270,
+      "status": "PASS",
+      "variant": "mobile_base",
+      "wall_seconds": 26.338566478996654,
+      "workflow": "teleop"
+    },
+    {
+      "backend": "mujoco",
+      "duration_seconds": 16.0,
+      "end_effector_motion_span": 0.34099129162296343,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 1763864,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/galaxea_r1lite__mobile_base__mujoco_teleop.gif",
+      "interaction_max_safe_correction": [
+        0.16617785684661215,
+        1.0797842810886051,
+        0.2022244989093396
+      ],
+      "interaction_safety_trigger_steps": [
+        41,
+        78,
+        79
+      ],
+      "left_end_effector_motion_span": 0.17648654876227476,
+      "mode": "mujoco_teleop",
+      "num_envs": 1,
+      "palette_optimized": true,
+      "policy_config": "TeleopPIDPolicy",
+      "profile": "galaxea_r1lite__mobile_base",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "robot": "galaxea_r1lite",
+      "robot_config": "GalaxeaR1LiteMobileBaseDynamic1CollisionConfig",
+      "safety_observed_steps": 795,
+      "safety_trigger_steps": 217,
+      "status": "PASS",
+      "variant": "mobile_base",
+      "wall_seconds": 23.935792878997745,
+      "workflow": "teleop"
+    },
+    {
+      "backend": "mujoco",
+      "duration_seconds": 16.0,
+      "end_effector_motion_span": 0.42811448839244093,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 1762674,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/unitree_g1__whole_body_wbt__mujoco_teleop.gif",
+      "interaction_max_safe_correction": [
+        1.4191439053961847,
+        3.070665223408236,
+        2.449799713928462
+      ],
+      "interaction_safety_trigger_steps": [
+        34,
+        88,
+        75
+      ],
+      "left_end_effector_bounds": [
+        [
+          0.17349643319801078,
+          0.2380214389755356,
+          0.7643452765370032
+        ],
+        [
+          0.4776885606438366,
+          0.4672906081510948,
+          0.9128721886966027
+        ]
+      ],
+      "left_end_effector_motion_span": 0.3041921274458258,
+      "mode": "mujoco_teleop",
+      "num_envs": 1,
+      "palette_optimized": true,
+      "policy_config": "UnitreeG1WBTPolicy",
+      "profile": "unitree_g1__whole_body_wbt",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "right_end_effector_bounds": [
+        [
+          0.17823762044689534,
+          -0.319384572233965,
+          0.7592231670872654
+        ],
+        [
+          0.510249013429829,
+          -0.10167557369025648,
+          1.1873376554797064
+        ]
+      ],
+      "robot": "unitree_g1",
+      "robot_config": "UnitreeG1WholeBodyDynamic1Config",
+      "safety_observed_steps": 795,
+      "safety_trigger_steps": 212,
+      "status": "PASS",
+      "variant": "whole_body_wbt",
+      "wall_seconds": 24.599903391004773,
+      "workflow": "teleop"
+    },
+    {
+      "backend": "mujoco",
+      "duration_seconds": 16.0,
+      "end_effector_motion_span": 0.6143857196326801,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 2172420,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/unitree_g1__whole_body_sport__mujoco_teleop.gif",
+      "interaction_max_safe_correction": [
+        1.8859621881920356,
+        2.188545491461961,
+        3.4922136404688855
+      ],
+      "interaction_safety_trigger_steps": [
+        46,
+        87,
+        104
+      ],
+      "left_end_effector_bounds": [
+        [
+          0.26727966031208605,
+          0.12991560306612793,
+          0.6656786513651151
+        ],
+        [
+          0.7247713905074455,
+          0.31796030512401247,
+          0.9157389982451873
+        ]
+      ],
+      "left_end_effector_motion_span": 0.4574917301953595,
+      "minimum_unobstructed_left_goal_error": 0.000612466771797996,
+      "minimum_unobstructed_right_goal_error": 0.0014276420962004348,
+      "mode": "mujoco_teleop",
+      "num_envs": 1,
+      "palette_optimized": true,
+      "policy_config": "UnitreeG1SportSafePolicy",
+      "profile": "unitree_g1__whole_body_sport",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "right_end_effector_bounds": [
+        [
+          0.26160980895497343,
+          -0.43797044376305605,
+          0.8270973337121817
+        ],
+        [
+          0.8759955285876535,
+          -0.22066981755515278,
+          1.1388742905754563
+        ]
+      ],
+      "robot": "unitree_g1",
+      "robot_config": "UnitreeG1WholeBodyWithHandDynamic1Config",
+      "safety_observed_steps": 795,
+      "safety_trigger_steps": 269,
+      "status": "PASS",
+      "unobstructed_goal_tracking_passed": true,
+      "unobstructed_goal_tracking_snapshot": {
+        "dof_position_feedback": [
+          0.2562322647857163,
+          -0.052840536998107784,
+          0.7735427830260101,
+          0.997985026363074,
+          -0.005452533100454936,
+          0.06319066989133341,
+          -0.0017596239847792329,
+          -0.35050376663285726,
+          -0.021261217117322442,
+          0.021668431432944207,
+          0.46212361195841334,
+          -0.2312903275174259,
+          0.041126781559088735,
+          -0.37441798775216784,
+          0.06917089485660279,
+          0.01900092501949369,
+          0.6672106847558609,
+          -0.34303559632343567,
+          -0.03320234289061139,
+          0.004992511213704017,
+          -0.012716485924105354,
+          0.0012636244872324836,
+          0.029759623941462764,
+          0.863652583616679,
+          -0.346401607696871,
+          0.6484082338076054,
+          0.6925481111479482,
+          -0.28393832700907606,
+          0.7104211117467778,
+          -0.39995373466906936,
+          0.19949761143888514,
+          0.5997134315529804,
+          -0.8017406998794818,
+          -0.6000535068729087,
+          -0.8017358271366738,
+          -0.6000532154491999,
+          -0.01814067926898288,
+          -1.1456337378996997,
+          0.07217730094542184,
+          0.10510357762873576,
+          -0.42137506985008494,
+          -0.07110260575964159,
+          -0.08702210026333683,
+          -0.39992188445147636,
+          -0.1994038505580101,
+          -0.5996949253143423,
+          0.801795883017508,
+          0.6000558045752518,
+          0.8018028169657027,
+          0.6000567483517267
+        ],
+        "dof_position_target": [],
+        "ik_success": true,
+        "left_ee_world": [
+          0.5003518382363806,
+          0.2786530805041769,
+          0.7882375874566
+        ],
+        "left_goal_world": [
+          0.5015530123360218,
+          0.2766625317872933,
+          0.789209897704938
+        ],
+        "right_ee_world": [
+          0.5804937404940239,
+          -0.37517830986381706,
+          0.939728341482579
+        ],
+        "right_goal_world": [
+          0.5781321360172091,
+          -0.3819471063143912,
+          0.937766225122487
+        ]
+      },
+      "variant": "whole_body_sport",
+      "wall_seconds": 25.46777231901069,
+      "workflow": "teleop"
+    },
+    {
+      "backend": "isaac",
+      "duration_seconds": 16.0,
+      "fps": 10.0,
+      "frame_count": 160,
+      "gif_bytes": 2278549,
+      "gif_duration_seconds": 16.0,
+      "gif_path": "docs/media/demos/robot_matrix/unitree_g1__whole_body_sonic__isaac_parallel.gif",
+      "mode": "isaac_parallel",
+      "num_envs": 4,
+      "palette_optimized": true,
+      "policy_config": "UnitreeG1SonicPolicy",
+      "profile": "unitree_g1__whole_body_sonic",
+      "real_time_playback": true,
+      "resolution": [
+        960,
+        540
+      ],
+      "robot": "unitree_g1",
+      "robot_config": "UnitreeG1WholeBodyDynamic1Config",
+      "status": "PASS",
+      "variant": "whole_body_sonic",
+      "wall_seconds": 87.37137686499045,
+      "workflow": "benchmark"
+    }
+  ],
+  "schema_version": 1
+}

@@ -1,0 +1,91 @@
+name: CPU validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spark-cpu-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out SPARK
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install CPU development profile
+        run: ./install.sh --env-manager venv --path .venv --profile mujoco --learned --dev
+
+      - name: Compile source
+        run: .venv/bin/python -m compileall -q module pipeline example tools tests
+
+      - name: Check Python correctness
+        run: .venv/bin/ruff check module pipeline example tests tools
+
+      - name: Check Python formatting
+        run: .venv/bin/ruff format --check module pipeline example tests tools
+
+      - name: Validate Docker Compose profiles
+        run: |
+          docker compose \
+            --profile core --profile default --profile isaac \
+            --profile ros --profile wsl config --quiet
+          docker compose \
+            -f docker-compose.yml -f .devcontainer/docker-compose.yml \
+            --profile default config --quiet
+
+      - name: Run tests
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+        run: .venv/bin/python -m pytest -q
+
+      - name: Remove generated caches
+        run: |
+          find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -not -path './.git/*' -delete
+          find . -path ./.git -prune -o -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache -o -name '*.egg-info' \) -prune -exec rm -rf -- {} +
+
+      - name: Check release hygiene
+        run: .venv/bin/python tools/check_release.py
+
+  macos-core:
+    name: macOS core installation
+    runs-on: macos-14
+    steps:
+      - name: Check out SPARK
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install core development profile
+        run: ./install.sh --env-manager venv --path .venv --profile core --dev
+
+      - name: Run core API smoke test
+        run: |
+          .venv/bin/python - <<'PY'
+          import numpy as np
+          from spark_robot import KinovaGen3SingleArmDynamic2Config
+
+          robot = KinovaGen3SingleArmDynamic2Config()
+          model = robot.create_dynamics_model()
+          state = np.zeros(model.state_dim)
+          control = np.zeros(model.control_dim)
+          assert model.step(state, control, 0.01).shape == state.shape
+          print(model.variant, model.dimensions)
+          PY

@@ -1,0 +1,3584 @@
+diff --git a/gear_sonic/utils/inference_helpers.py b/gear_sonic/utils/inference_helpers.py
+index 5ed61f2..a5bdaee 100644
+--- a/gear_sonic/utils/inference_helpers.py
++++ b/gear_sonic/utils/inference_helpers.py
+@@ -52,6 +52,10 @@ def export_policy_as_onnx(inference_model, path, exported_policy_name, example_o
+             verbose=True,
+             input_names=["obs_dict"],
+             output_names=["action"],
++            dynamic_axes={
++                "obs_dict": {0: "batch"},
++                "action": {0: "batch"},
++            },
+             opset_version=13,
+         )
+ 
+@@ -184,6 +188,10 @@ def export_universal_token_module_as_onnx(
+             verbose=True,
+             input_names=["obs_dict"],
+             output_names=["action"],
++            dynamic_axes={
++                "obs_dict": {0: "batch"},
++                "action": {0: "batch"},
++            },
+             opset_version=13,
+         )
+ 
+@@ -322,6 +330,10 @@ def export_universal_token_encoders_as_onnx(
+             verbose=True,
+             input_names=["obs_dict"],
+             output_names=["encoded_tokens"],
++            dynamic_axes={
++                "obs_dict": {0: "batch"},
++                "encoded_tokens": {0: "batch"},
++            },
+             opset_version=13,
+         )
+ 
+@@ -455,6 +467,10 @@ def export_universal_token_decoder_as_onnx(
+             verbose=True,
+             input_names=["obs_dict"],
+             output_names=["action"],
++            dynamic_axes={
++                "obs_dict": {0: "batch"},
++                "action": {0: "batch"},
++            },
+             opset_version=13,
+         )
+ 
+diff --git a/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp b/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp
+index 1243500..9f8a9e8 100644
+--- a/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp
++++ b/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp
+@@ -1,794 +1,822 @@
+-#include "InferenceEngine.h"
+-#include "Log.h"
+-#include "picosha2.h"
+-
+-#include <fstream>
+-#include <array>
+-#include <bitset>
+-#include <vector>
+-#include <map>
+-#include <iostream>
+-
+-#include <NvInfer.h>
+-#include <NvOnnxParser.h>
+-
+-namespace
+-{
+-    class Logger : public nvinfer1::ILogger
+-    {
+-    public:
+-        Logger( bool verbose )
+-            : m_flags( UINT8_MAX )
+-        {
+-            m_flags.set( static_cast<size_t>( Severity::kVERBOSE ), verbose );
+-        }
+-
+-        void log( Severity severity, const char* msg ) noexcept override
+-        {
+-            if ( !m_flags.test( static_cast<size_t>( severity ) ) )
+-                return;
+-
+-            switch ( severity )
+-            {
+-                case Severity::kINFO:
+-                case Severity::kVERBOSE:
+-                    LOG_INFO( msg );
+-                break;
+-                case Severity::kWARNING:
+-                    LOG_WARNING( msg );
+-                break;
+-                case Severity::kERROR:
+-                case Severity::kINTERNAL_ERROR:
+-                    LOG_ERROR( msg );
+-                break;
+-            }
+-        }
+-
+-        void log( cudaError_t error )
+-        {
+-            if ( error == cudaError_t::cudaSuccess )
+-                return;
+-
+-            LOG_ERROR( "CUDA failed with error [ " + std::to_string( error ) + " : " + cudaGetErrorName( error ) + " ]: " + cudaGetErrorString( error ) );
+-        }
+-
+-    private:
+-        static constexpr uint8_t NB_FLAGS = static_cast<uint8_t>( Severity::kVERBOSE ) + 1;
+-        std::bitset<NB_FLAGS> m_flags;
+-    };
+-
+-    Logger s_logger(false);
+-
+-    bool FileExists( const std::string& filepath )
+-    {
+-        return std::ifstream( filepath.c_str() ).good();
+-    }
+-
+-    std::string GetCudaDeviceName( int deviceID )
+-    {
+-        int deviceCount = 0;
+-        cudaGetDeviceCount( &deviceCount );
+-
+-        if ( deviceID >= deviceCount )
+-            return std::string();
+-
+-        cudaDeviceProp prop;
+-        cudaGetDeviceProperties( &prop, deviceID );
+-        return std::string( prop.name );
+-    }
+-
+-    int SizeOfTensorDataType( nvinfer1::DataType dataType )
+-    {
+-        int size = -1;
+-        switch ( dataType )
+-        {
+-            case nvinfer1::DataType::kINT64:
+-            size = sizeof( uint64_t );
+-            break;
+-            
+-            case nvinfer1::DataType::kINT32:
+-            case nvinfer1::DataType::kFLOAT:
+-            size = sizeof( uint32_t );
+-            break;
+-            
+-            case nvinfer1::DataType::kHALF:
+-            case nvinfer1::DataType::kBF16:
+-            size = sizeof( uint16_t );
+-            break;
+-            
+-            case nvinfer1::DataType::kFP8:
+-            case nvinfer1::DataType::kINT8:
+-            case nvinfer1::DataType::kBOOL:
+-            case nvinfer1::DataType::kUINT8:
+-            size = sizeof( uint8_t );
+-            break;
+-            
+-            default:
+-            break;
+-        }
+-
+-        return size;
+-    }
+-}
+-
+-bool ConvertONNXToTRT(
+-    const Options& options,
+-    const std::string& onnxModelPath,
+-    std::string& trtFile,
+-    const std::string prefix,
+-    bool forceConvert
+-)
+-{
+-    if ( !FileExists( onnxModelPath ) )
+-    {
+-        LOG_ERROR( "Cannot find ONNX mode at path: " + onnxModelPath );
+-        return false;
+-    }
+-
+-    // Find a hash string identifying the onnx we're going to convert to 
+-    // tensorrt, plus the gpu we're going to convert it for:
+-    std::ifstream file(onnxModelPath, std::ios::binary);
+-    std::string trtHash = picosha2::hash256_hex_string(
+-        std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()
+-    );
+-
+-    // hash in the cuda device name and precision::
+-    trtHash = picosha2::hash256_hex_string(trtHash + GetCudaDeviceName( options.deviceID ));
+-    trtHash = picosha2::hash256_hex_string(trtHash + std::to_string(int(options.precision)));
+-
+-    // name of the tensorrt we're going to write to (same directory as the ONNX model):
+-    const auto filenamePos = onnxModelPath.find_last_of( '/' ) + 1;
+-    const auto onnxDir = onnxModelPath.substr(0, filenamePos);
+-    trtFile = onnxDir + prefix + onnxModelPath.substr( filenamePos, onnxModelPath.find_last_of( '.' ) - filenamePos );
+-    trtFile += ".trt";
+-
+-    if (!forceConvert && FileExists( trtFile ) )
+-    {
+-        std::ifstream file(trtFile, std::ios::binary);
+-        
+-        std::string hashInFile;
+-        hashInFile.resize(trtHash.size());
+-
+-        file.read(const_cast<char*>(hashInFile.c_str()), trtHash.size());
+-
+-        std::cerr << "hash value in file " <<  hashInFile << std::endl;
+-        std::cerr << "hash of onnx/gpu type " << trtHash << std::endl;
+-
+-        if(hashInFile == trtHash)
+-        {
+-            return true;
+-        }
+-        LOG_INFO( "TRT file " + trtFile + " is out of date and needs to be regenerated. This could take a while..." );
+-    }
+-    else
+-    {
+-        LOG_INFO( "TRT file " + trtFile + " not found. This could take a while to generate..." );
+-    }
+-
+-
+-    // Create engine builder
+-    auto builder = std::unique_ptr<nvinfer1::IBuilder>( nvinfer1::createInferBuilder( s_logger ) );
+-    if ( !builder )
+-    {
+-        LOG_ERROR( "Could not create builder." );
+-        return false;
+-    }
+-
+-    // Create network
+-    const uint32_t explicitBatch = 1U << static_cast<uint32_t>( nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH );
+-    auto network = std::unique_ptr<nvinfer1::INetworkDefinition>( builder->createNetworkV2( explicitBatch ) );
+-    if ( !network )
+-    {
+-        LOG_ERROR( "Could not create network." );
+-        return false;
+-    }
+-
+-    // Create a parser for reading the onnx file.
+-    auto parser = std::unique_ptr<nvonnxparser::IParser>( nvonnxparser::createParser( *network, s_logger ) );
+-    if ( !parser )
+-    {
+-        LOG_ERROR( "Could not create ONNX parser." );
+-        return false;
+-    }
+-
+-    // Read and parse the ONNX file
+-    auto parsed = parser->parseFromFile( onnxModelPath.c_str(), 0 );
+-    if ( !parsed )
+-    {
+-        LOG_ERROR( "Unable to parse the ONNX model at: " + onnxModelPath );
+-        return false;
+-    }
+-
+-    // Ensure that all the inputs have the same batch size
+-    const int32_t inputCount = network->getNbInputs();
+-    if ( inputCount < 1 )
+-    {
+-        LOG_ERROR( "Model has no inputs." );
+-        return false;
+-    }
+-
+-    // Set dynamic axis info for inputs:
+-    auto profile = builder->createOptimizationProfile();
+-    for ( int32_t i = 0; i < inputCount; ++i )
+-    {
+-        auto t = network->getInput( i );
+-        const auto name = t->getName();
+-        auto dims = t->getDimensions();
+-
+-        bool hasDynamicAxes = false;
+-        auto dimsMin = dims;
+-        auto dimsOpt = dims;
+-        auto dimsMax = dims;
+-
+-        for ( int32_t n = 0; n < dims.nbDims; ++n )
+-        {
+-            if ( dims.d[n] == -1 )
+-            {
+-                auto axis_sizes = options.defaultSizes;
+-                if (options.dynamic_axes_names.contains(t->getName()))
+-                {
+-                    auto& dynamic_axis_names = options.dynamic_axes_names.at(t->getName());
+-                    if (!dynamic_axis_names.contains(n))
+-                    {
+-                        LOG_ERROR("Tensor " + std::string(t->getName()) + " has a dynamic axes, but its name isn't specified in options.input_dynamic_axes");
+-                        return false;
+-                    }
+-
+-                    auto axis_name = dynamic_axis_names.at(n);
+-                    if (!options.dynamic_axes_sizes.contains(axis_name))
+-                    {
+-                        LOG_ERROR("Named axis " + axis_name + " has no entry in options.dynamic_axes_sizes");
+-                        return false;
+-                    }
+-                    axis_sizes = options.dynamic_axes_sizes.at(axis_name);
+-                }
+-
+-                hasDynamicAxes = true;
+-                dimsMin.d[n] = std::get<0>( axis_sizes );
+-                dimsOpt.d[n] = std::get<1>( axis_sizes );
+-                dimsMax.d[n] = std::get<2>( axis_sizes );
+-            }
+-        }
+-        profile->setDimensions( name, nvinfer1::OptProfileSelector::kMIN, dimsMin );
+-        profile->setDimensions( name, nvinfer1::OptProfileSelector::kOPT, dimsOpt );
+-        profile->setDimensions( name, nvinfer1::OptProfileSelector::kMAX, dimsMax );
+-
+-        if ( t->isShapeTensor() )
+-        {
+-            if ( !options.shape_tensor_sizes.contains( name ) )
+-            {
+-                LOG_ERROR( "Tensor " + std::string( name ) + " controls the shape of an internal tensor and needs an entry in options.shape_tensor_sizes" );
+-                return false;
+-            }
+-            auto &sizes = options.shape_tensor_sizes.at( name );
+-
+-            profile->setShapeValues( name, nvinfer1::OptProfileSelector::kMIN, std::get<0>( sizes ).data(), std::get<0>( sizes ).size());
+-            profile->setShapeValues( name, nvinfer1::OptProfileSelector::kOPT, std::get<1>( sizes ).data(), std::get<1>( sizes ).size() );
+-            profile->setShapeValues( name, nvinfer1::OptProfileSelector::kMAX, std::get<2>( sizes ).data(), std::get<2>( sizes ).size() );
+-        }
+-    }
+-
+-    auto config = std::unique_ptr<nvinfer1::IBuilderConfig>( builder->createBuilderConfig() );
+-    if ( !config )
+-    {
+-        LOG_ERROR( "Could not create builder config." );
+-        return false;
+-    }
+-    config->addOptimizationProfile( profile );
+-
+-    // Set the precision level
+-    if ( options.precision == Precision::FP16 )
+-    {
+-        // Ensure the GPU supports FP16 inference
+-        if ( !builder->platformHasFastFp16() )
+-        {
+-            LOG_ERROR( "GPU does not support FP16 precision." );
+-            return false;
+-        }
+-        config->setFlag( nvinfer1::BuilderFlag::kFP16 );
+-    }
+-
+-    // CUDA stream used for profiling by the builder.
+-    cudaStream_t stream;
+-    s_logger.log( cudaStreamCreate( &stream ) );
+-    config->setProfileStream( stream );
+-
+-    // Build the engine
+-    // If this call fails, it is suggested to increase the logger verbosity to kVERBOSE and try rebuilding the engine.
+-    // Doing so will provide you with more information on why exactly it is failing.
+-    auto serializedNetwork = builder->buildSerializedNetwork( *network, *config );
+-    if ( !serializedNetwork )
+-    {
+-        s_logger.log( cudaStreamDestroy( stream ) );
+-
+-        LOG_ERROR( "Failed to build the engine!" );
+-        return false;
+-    }
+-
+-    // Write the engine to disk
+-    std::ofstream outfile( trtFile, std::ofstream::binary );
+-
+-    // Write the onnx/gpu hash first:
+-    outfile.write( trtHash.c_str(), trtHash.size() );
+-
+-    // Write the engine:
+-    outfile.write( reinterpret_cast<const char*>( serializedNetwork->data() ), serializedNetwork->size() );
+-
+-    LOG_INFO( "Saved TRT file to " + trtFile );
+-    s_logger.log( cudaStreamDestroy( stream ) );
+-
+-    return true;
+-}
+-
+-class TRTInferenceEngine::Impl
+-{
+-public:
+-    
+-    ~Impl()
+-    {
+-        Destroy();
+-    }
+-
+-    bool Initialize( const std::string& trtPath, int deviceIndex, const Options::AxisNames& axisNames )
+-    {
+-        Destroy();
+-
+-        // Read the serialized model from disk
+-        std::ifstream file( trtPath, std::ios::binary | std::ios::ate );
+-        std::streamsize size = file.tellg();
+-        if (size < 0)
+-        {
+-            LOG_ERROR("Unable to read engine file!");
+-            return false;
+-        }
+-
+-        file.seekg( 0, std::ios::beg );
+-        std::vector<char> buffer( size );
+-        if ( !file.read( buffer.data(), size ) )
+-        {
+-            LOG_ERROR( "Unable to read engine file!" );
+-            return false;
+-        }
+-
+-        // Create runtime to deserialize the engine file.
+-        m_runtime = std::unique_ptr<nvinfer1::IRuntime>( nvinfer1::createInferRuntime( s_logger ) );
+-        if ( !m_runtime )
+-        {
+-            LOG_ERROR( "Unable to create a runtime inference model." );
+-            return false;
+-        }
+-
+-        // Set the device index
+-        if ( cudaSetDevice( deviceIndex ) != cudaError_t::cudaSuccess )
+-        {
+-            int gpuCount;
+-            cudaGetDeviceCount( &gpuCount );
+-            LOG_ERROR( "Unable to set GPU device index to " + std::to_string( deviceIndex ) + ". Current device has " + std::to_string( gpuCount ) + " CUDA - capable GPU(s)." );
+-            return false;
+-        }
+-
+-        // Create an engine, a representation of the optimized model.
+-        // skip the first 64 bytes when deserializing the engine file as they just contain a hash:
+-        m_engine = std::unique_ptr<nvinfer1::ICudaEngine>( m_runtime->deserializeCudaEngine( buffer.data() + 64, buffer.size() - 64 ) );
+-        if ( !m_engine )
+-        {
+-            LOG_ERROR("Unable to create engine.");
+-            return false;
+-        }
+-
+-        // The execution context contains all of the state associated with a particular invocation
+-        m_context = std::unique_ptr<nvinfer1::IExecutionContext>( m_engine->createExecutionContext() );
+-        if ( !m_context )
+-        {
+-            LOG_ERROR("Unable to create execution context.");
+-            return false;
+-        }
+-
+-        m_axis_names = axisNames;
+-
+-        const uint32_t tensorCount = m_engine->getNbIOTensors();
+-        for (int32_t i = 0; i < tensorCount; ++i)
+-        {
+-            const auto tensorName = m_engine->getIOTensorName(i);
+-            const auto tensorIOMode = m_engine->getTensorIOMode(tensorName);
+-            m_dataTypeSizes[tensorName] = SizeOfTensorDataType(m_engine->getTensorDataType(tensorName));
+-        }
+-        
+-        return true;
+-    }
+-
+-
+-    bool InitInputs(const AxisSizes& axisSizes)
+-    {
+-        DestroyBuffers();
+-
+-        const uint32_t tensorCount = m_engine->getNbIOTensors();
+-        for (int32_t i = 0; i < tensorCount; ++i)
+-        {
+-            const auto tensorName = m_engine->getIOTensorName(i);
+-            const auto tensorIOMode = m_engine->getTensorIOMode(tensorName);
+-            auto tensorShape = m_engine->getTensorShape(tensorName);
+-            const auto tensorDataType = m_engine->getTensorDataType(tensorName);
+-
+-            for (int32_t n = 0; n < tensorShape.nbDims; ++n)
+-            {
+-                if (tensorShape.d[n] == -1)
+-                {
+-                    int64_t batchSize = 1;
+-                    if (m_axis_names.contains(tensorName))
+-                    {
+-
+-                        auto& dynamic_axis_names = m_axis_names.at(tensorName);
+-                        if (!dynamic_axis_names.contains(n))
+-                        {
+-                            LOG_ERROR("Tensor " + std::string(tensorName) + " has a dynamic axes, but its name isn't specified in axisNames");
+-                            return false;
+-                        }
+-
+-                        auto axis_name = dynamic_axis_names.at(n);
+-                        if (!axisSizes.contains(axis_name))
+-                        {
+-                            LOG_ERROR("Named axis " + axis_name + " has no entry in axisSizes");
+-                            return false;
+-                        }
+-
+-                        batchSize = axisSizes.at(axis_name);
+-                    }
+-                    else if (axisSizes.size() > 0)
+-                    {
+-                        batchSize = axisSizes.begin()->second;
+-                    }
+-
+-                    tensorShape.d[n] = batchSize;
+-                    if (tensorIOMode == nvinfer1::TensorIOMode::kINPUT)
+-                    {
+-                        auto batchMin = m_engine->getProfileShape(tensorName, 0, nvinfer1::OptProfileSelector::kMIN).d[n];
+-                        auto batchMax = m_engine->getProfileShape(tensorName, 0, nvinfer1::OptProfileSelector::kMAX).d[n];
+-                        if (batchSize < batchMin || batchSize > batchMax)
+-                        {
+-                            LOG_ERROR("Batch size " + std::to_string(batchSize) + " is outside of possible range [ " + std::to_string(batchMin) + ", " + std::to_string(batchMax) + "].");
+-                            return false;
+-                        }
+-                    }
+-                }
+-            }
+-
+-            m_tensorShapes[tensorName] = tensorShape;
+-            static const std::string dataTypeStr[] = { "FLOAT", "HALF", "INT8", "INT32", "BOOL", "UINT8", "FP8", "BF16", "INT64" };
+-            static const std::string ioTypeStr[] = { "NONE", "INPUT", "OUTPUT" };
+-            std::string tensorInfo = ioTypeStr[int(tensorIOMode)] + " Tensor: " + std::string(tensorName) + " [";
+-            size_t elementCount = 1;
+-            for (int32_t d = 0; d < tensorShape.nbDims; ++d)
+-            {
+-                if (d != 0)
+-                    tensorInfo += ", ";
+-
+-                tensorInfo += std::to_string(tensorShape.d[d]);
+-
+-                if (elementCount > INT64_MAX / tensorShape.d[d])
+-                {
+-                    LOG_ERROR("Tensor too large: element count overflow");
+-                    return false;
+-                }
+-                elementCount *= tensorShape.d[d];
+-            }
+-            tensorInfo += "]. " + std::to_string(elementCount) + " elements of type " + dataTypeStr[int(tensorDataType)];
+-            LOG_INFO(tensorInfo);
+-
+-            const auto sizeOfTensorData = SizeOfTensorDataType(tensorDataType);
+-            if (sizeOfTensorData == -1)
+-            {
+-                LOG_ERROR("Unknown tensor data type " + std::to_string((int)tensorDataType) + ".");
+-                return false;
+-            }
+-
+-            void* cudaBuffer;
+-            size_t size = elementCount * sizeOfTensorData;
+-            auto err = cudaMalloc(&cudaBuffer, size);
+-            s_logger.log(err);
+-            if (err != cudaSuccess)
+-            {
+-                LOG_ERROR("Failed to allocate CUDA memory");
+-                return false;
+-            }
+-
+-            s_logger.log(cudaMemset(cudaBuffer, 0, size));
+-
+-            m_context->setTensorAddress(tensorName, cudaBuffer);
+-            if (tensorIOMode == nvinfer1::TensorIOMode::kINPUT)
+-            {
+-                m_inputBuffers[tensorName] = cudaBuffer;
+-            }
+-            else
+-            {
+-                m_outputBuffers[tensorName] = cudaBuffer;
+-            }
+-        }
+-
+-        // Set input tensor shapes to specified batch size
+-        for (int i = 0; i < tensorCount; ++i)
+-        {
+-            const auto tensorName = m_engine->getIOTensorName(i);
+-            if (m_engine->getTensorIOMode(tensorName) != nvinfer1::TensorIOMode::kINPUT)
+-                continue;
+-
+-            auto tensorShape = m_tensorShapes[tensorName];
+-
+-            m_context->setInputShape(tensorName, tensorShape);
+-        }
+-
+-        return true;
+-    }
+-
+-    void DestroyBuffers()
+-    {
+-        for (auto& kv : m_inputBuffers)
+-        {
+-            s_logger.log(cudaFree(kv.second));
+-        }
+-        for (auto& kv : m_outputBuffers)
+-        {
+-            s_logger.log(cudaFree(kv.second));
+-        }
+-
+-        m_inputBuffers.clear();
+-        m_outputBuffers.clear();
+-        m_tensorShapes.clear();
+-    }
+-
+-    void Destroy()
+-    {
+-        DestroyBuffers();
+-
+-        m_context.reset();
+-        m_engine.reset();
+-        m_runtime.reset();
+-    }
+-
+-    bool ValidateTensorSize(const std::string& name, size_t byteCount) const
+-    {
+-        if (m_tensorShapes.empty())
+-        {
+-            LOG_ERROR("ValidateTensorSize: InitInputs has not been called.");
+-            return false;
+-        }
+-
+-        if (!m_tensorShapes.contains(name))
+-        {
+-            LOG_ERROR("ValidateTensorSize: Tensor " + name + " not found.");
+-            return false;
+-        }
+-
+-        size_t elementCount = 1;
+-        const auto& tensorShape = m_tensorShapes.at(name);
+-        for (int32_t d = 0; d < tensorShape.nbDims; ++d)
+-            elementCount *= tensorShape.d[d];
+-
+-        const size_t expectedByteCount = elementCount * m_dataTypeSizes.at(name);
+-        if (expectedByteCount != byteCount)
+-        {
+-            LOG_ERROR(
+-                "Invalid data size for tensor [" + name + "] containing " + std::to_string(elementCount) + " elements. Expected " +
+-                std::to_string(expectedByteCount) + " bytes, got " + std::to_string(byteCount) + " bytes instead.");
+-            return false;
+-        }
+-
+-        return true;
+-    }
+-
+-    std::vector<std::string> GetInputBufferNames() const
+-    {
+-        std::vector<std::string> names;
+-        names.reserve(m_inputBuffers.size());
+-
+-        for (const auto& pair : m_inputBuffers) 
+-        {
+-            names.push_back(pair.first);
+-        }
+-        return names;
+-    }
+-
+-    std::vector<std::string> GetOutputBufferNames() const
+-    {
+-        std::vector<std::string> names;
+-        names.reserve(m_outputBuffers.size());
+-
+-        for (const auto& pair : m_outputBuffers)
+-        {
+-            names.push_back(pair.first);
+-        }
+-        return names;
+-    }
+-
+-    void SetInputData(const std::string& name, const void* data, size_t byteCount)
+-    {
+-        if(!ValidateTensorSize(name, byteCount))
+-        {
+-            LOG_ERROR("SetInputData: Tensor " + name + " is not valid.");
+-            return;
+-        }
+-        s_logger.log(cudaMemcpy(m_inputBuffers[name], data, byteCount, cudaMemcpyHostToDevice));
+-    }
+-
+-    void SetInputDataAsync(const std::string& name, const void* data, size_t byteCount, cudaStream_t stream)
+-    {
+-        if(!ValidateTensorSize(name, byteCount))
+-        {
+-            LOG_ERROR("SetInputDataAsync: Tensor " + name + " is not valid.");
+-            return;
+-        }
+-        s_logger.log(cudaMemcpyAsync(m_inputBuffers[name], data, byteCount, cudaMemcpyHostToDevice, stream));
+-    }
+-
+-    void GetOutputData(const std::string& name, void* data, size_t byteCount)
+-    {
+-        if(!ValidateTensorSize(name, byteCount))
+-        {
+-            LOG_ERROR("GetOutputData: Tensor " + name + " is not valid.");
+-            return;
+-        }
+-        s_logger.log(cudaMemcpy(data, m_outputBuffers[name], byteCount, cudaMemcpyDeviceToHost));
+-    }
+-
+-    void GetOutputDataAsync(const std::string& name, void* data, size_t byteCount, cudaStream_t stream)
+-    {
+-        if(!ValidateTensorSize(name, byteCount))
+-        {
+-            LOG_ERROR("GetOutputDataAsync: Tensor " + name + " is not valid.");
+-            return;
+-        }
+-        s_logger.log(cudaMemcpyAsync(data, m_outputBuffers[name], byteCount, cudaMemcpyDeviceToHost, stream));
+-    }
+-
+-    bool Enqueue( cudaStream_t stream )
+-    {
+-        if (m_tensorShapes.empty())
+-        {
+-            LOG_ERROR("Enqueue: InitInputs has not been called.");
+-            return false;
+-        }
+-
+-        if (!m_context->allInputDimensionsSpecified())
+-        {
+-            LOG_ERROR("Inference engine inputs aren't defined.");
+-            return false;
+-        }
+-
+-        if(!m_context->enqueueV3(stream))
+-        {
+-            LOG_ERROR("Enqueue: Failed to enqueue.");
+-            return false;
+-        }
+-        return true;
+-    }
+-
+-    bool GetTensorShape(std::string name, std::vector<int64_t>& shape) const
+-    {
+-        if (m_tensorShapes.empty())
+-        {
+-            LOG_ERROR("ValidateTensorSize: InitInputs has not been called.");
+-            return false;
+-        }
+-
+-        if (!m_tensorShapes.contains(name))
+-        {
+-            LOG_ERROR("ValidateTensorSize: Tensor " + name + " not found.");
+-            return false;
+-        }
+-
+-        const auto& tensorShape = m_tensorShapes.at(name);
+-        shape.clear();
+-        for (int dim=0; dim < tensorShape.nbDims; ++dim)
+-        {
+-            shape.push_back(tensorShape.d[dim]);
+-        }
+-        return true;
+-    }
+-
+-    nvinfer1::DataType GetTensorDataType(std::string name) const
+-    {
+-        auto tensorDataType = m_engine->getTensorDataType(name.c_str());
+-        return tensorDataType;
+-    }
+-
+-    std::unique_ptr<nvinfer1::IExecutionContext> m_context = nullptr;
+-    std::unique_ptr<nvinfer1::ICudaEngine> m_engine = nullptr;
+-    std::unique_ptr<nvinfer1::IRuntime> m_runtime = nullptr;
+-
+-    std::map<std::string, nvinfer1::Dims> m_tensorShapes;
+-
+-    std::map<std::string, void*> m_inputBuffers;
+-    std::map<std::string, void*> m_outputBuffers;
+-
+-    std::map<std::string, int> m_dataTypeSizes;
+-
+-    Options::AxisNames m_axis_names;
+-};
+-
+-TRTInferenceEngine::TRTInferenceEngine() : m_impl( new Impl )
+-{
+-}
+-
+-TRTInferenceEngine::~TRTInferenceEngine()
+-{
+-}
+-
+-bool TRTInferenceEngine::Initialize(const std::string& trtPath, int deviceIndex, const Options::AxisNames& axisNames)
+-{
+-    return m_impl->Initialize(trtPath, deviceIndex, axisNames);
+-}
+-
+-bool TRTInferenceEngine::InitInputs(const AxisSizes& axisSizes)
+-{
+-    return m_impl->InitInputs(axisSizes);
+-}
+-
+-void TRTInferenceEngine::Destroy()
+-{
+-    m_impl->Destroy();
+-}
+-
+-std::vector<std::string> TRTInferenceEngine::GetInputTensorNames() const
+-{
+-    return m_impl->GetInputBufferNames();
+-}
+-
+-std::vector<std::string> TRTInferenceEngine::GetOutputTensorNames() const
+-{
+-    return m_impl->GetOutputBufferNames();
+-}
+-
+-void TRTInferenceEngine::SetInputData(const std::string& name, const void* data, size_t byteCount)
+-{
+-    m_impl->SetInputData(name, data, byteCount);
+-}
+-
+-void TRTInferenceEngine::GetOutputData(const std::string& name, void* data, size_t byteCount)
+-{
+-    m_impl->GetOutputData( name, data, byteCount);
+-}
+-
+-void TRTInferenceEngine::SetInputDataAsync(const std::string& name, const void* data, size_t byteCount, cudaStream_t stream)
+-{
+-    m_impl->SetInputDataAsync(name, data, byteCount, stream);
+-}
+-
+-void TRTInferenceEngine::GetOutputDataAsync(const std::string& name, void* data, size_t byteCount, cudaStream_t stream)
+-{
+-    m_impl->GetOutputDataAsync(name, data, byteCount, stream);
+-}
+-
+-bool TRTInferenceEngine::Enqueue(cudaStream_t stream)
+-{
+-    return m_impl->Enqueue(stream);
+-}
+-
+-bool TRTInferenceEngine::GetTensorShape(std::string name, std::vector<int64_t>& shape) const
+-{
+-    return m_impl->GetTensorShape(name, shape);
+-}
+-
+-DataType TRTInferenceEngine::GetTensorDataType(std::string name) const
+-{
+-    auto dataType = m_impl->GetTensorDataType(name);
+-    switch (dataType)
+-    {
+-        case nvinfer1::DataType::kFLOAT:
+-        return DataType::FLOAT;
+-        case nvinfer1::DataType::kHALF:
+-        return DataType::HALF;
+-        case nvinfer1::DataType::kINT8:
+-        return DataType::INT8;
+-        case nvinfer1::DataType::kINT32:
+-        return DataType::INT32;
+-        case nvinfer1::DataType::kBOOL:
+-        return DataType::BOOL;
+-        case nvinfer1::DataType::kUINT8:
+-        return DataType::UINT8;
+-        case nvinfer1::DataType::kINT64:
+-        return DataType::INT64;
+-        default:
+-        LOG_ERROR("ValidateTensorSize: Tensor " + name + " not found.");
+-        return DataType::UNKNOWN;
+-    }
+-}
+\ No newline at end of file
++#include "InferenceEngine.h"
++
++#include <mutex>
++#include <unordered_map>
++#include "Log.h"
++#include "picosha2.h"
++
++#include <fstream>
++#include <array>
++#include <bitset>
++#include <vector>
++#include <map>
++#include <iostream>
++
++#include <NvInfer.h>
++#include <NvOnnxParser.h>
++
++namespace
++{
++    class Logger : public nvinfer1::ILogger
++    {
++    public:
++        Logger( bool verbose )
++            : m_flags( UINT8_MAX )
++        {
++            m_flags.set( static_cast<size_t>( Severity::kVERBOSE ), verbose );
++        }
++
++        void log( Severity severity, const char* msg ) noexcept override
++        {
++            if ( !m_flags.test( static_cast<size_t>( severity ) ) )
++                return;
++
++            switch ( severity )
++            {
++                case Severity::kINFO:
++                case Severity::kVERBOSE:
++                    LOG_INFO( msg );
++                break;
++                case Severity::kWARNING:
++                    LOG_WARNING( msg );
++                break;
++                case Severity::kERROR:
++                case Severity::kINTERNAL_ERROR:
++                    LOG_ERROR( msg );
++                break;
++            }
++        }
++
++        void log( cudaError_t error )
++        {
++            if ( error == cudaError_t::cudaSuccess )
++                return;
++
++            LOG_ERROR( "CUDA failed with error [ " + std::to_string( error ) + " : " + cudaGetErrorName( error ) + " ]: " + cudaGetErrorString( error ) );
++        }
++
++    private:
++        static constexpr uint8_t NB_FLAGS = static_cast<uint8_t>( Severity::kVERBOSE ) + 1;
++        std::bitset<NB_FLAGS> m_flags;
++    };
++
++    Logger s_logger(false);
++
++    bool FileExists( const std::string& filepath )
++    {
++        return std::ifstream( filepath.c_str() ).good();
++    }
++
++    std::string GetCudaDeviceName( int deviceID )
++    {
++        int deviceCount = 0;
++        cudaGetDeviceCount( &deviceCount );
++
++        if ( deviceID >= deviceCount )
++            return std::string();
++
++        cudaDeviceProp prop;
++        cudaGetDeviceProperties( &prop, deviceID );
++        return std::string( prop.name );
++    }
++
++    int SizeOfTensorDataType( nvinfer1::DataType dataType )
++    {
++        int size = -1;
++        switch ( dataType )
++        {
++            case nvinfer1::DataType::kINT64:
++            size = sizeof( uint64_t );
++            break;
++            
++            case nvinfer1::DataType::kINT32:
++            case nvinfer1::DataType::kFLOAT:
++            size = sizeof( uint32_t );
++            break;
++            
++            case nvinfer1::DataType::kHALF:
++            case nvinfer1::DataType::kBF16:
++            size = sizeof( uint16_t );
++            break;
++            
++            case nvinfer1::DataType::kFP8:
++            case nvinfer1::DataType::kINT8:
++            case nvinfer1::DataType::kBOOL:
++            case nvinfer1::DataType::kUINT8:
++            size = sizeof( uint8_t );
++            break;
++            
++            default:
++            break;
++        }
++
++        return size;
++    }
++}
++
++bool ConvertONNXToTRT(
++    const Options& options,
++    const std::string& onnxModelPath,
++    std::string& trtFile,
++    const std::string prefix,
++    bool forceConvert
++)
++{
++    if ( !FileExists( onnxModelPath ) )
++    {
++        LOG_ERROR( "Cannot find ONNX mode at path: " + onnxModelPath );
++        return false;
++    }
++
++    // Find a hash string identifying the onnx we're going to convert to 
++    // tensorrt, plus the gpu we're going to convert it for:
++    std::ifstream file(onnxModelPath, std::ios::binary);
++    std::string trtHash = picosha2::hash256_hex_string(
++        std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()
++    );
++
++    // hash in the cuda device name and precision::
++    trtHash = picosha2::hash256_hex_string(trtHash + GetCudaDeviceName( options.deviceID ));
++    trtHash = picosha2::hash256_hex_string(trtHash + std::to_string(int(options.precision)));
++
++    // name of the tensorrt we're going to write to (same directory as the ONNX model):
++    const auto filenamePos = onnxModelPath.find_last_of( '/' ) + 1;
++    const auto onnxDir = onnxModelPath.substr(0, filenamePos);
++    trtFile = onnxDir + prefix + onnxModelPath.substr( filenamePos, onnxModelPath.find_last_of( '.' ) - filenamePos );
++    trtFile += ".trt";
++
++    if (!forceConvert && FileExists( trtFile ) )
++    {
++        std::ifstream file(trtFile, std::ios::binary);
++        
++        std::string hashInFile;
++        hashInFile.resize(trtHash.size());
++
++        file.read(const_cast<char*>(hashInFile.c_str()), trtHash.size());
++
++        std::cerr << "hash value in file " <<  hashInFile << std::endl;
++        std::cerr << "hash of onnx/gpu type " << trtHash << std::endl;
++
++        if(hashInFile == trtHash)
++        {
++            return true;
++        }
++        LOG_INFO( "TRT file " + trtFile + " is out of date and needs to be regenerated. This could take a while..." );
++    }
++    else
++    {
++        LOG_INFO( "TRT file " + trtFile + " not found. This could take a while to generate..." );
++    }
++
++
++    // Create engine builder
++    auto builder = std::unique_ptr<nvinfer1::IBuilder>( nvinfer1::createInferBuilder( s_logger ) );
++    if ( !builder )
++    {
++        LOG_ERROR( "Could not create builder." );
++        return false;
++    }
++
++    // Create network
++    const uint32_t explicitBatch = 1U << static_cast<uint32_t>( nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH );
++    auto network = std::unique_ptr<nvinfer1::INetworkDefinition>( builder->createNetworkV2( explicitBatch ) );
++    if ( !network )
++    {
++        LOG_ERROR( "Could not create network." );
++        return false;
++    }
++
++    // Create a parser for reading the onnx file.
++    auto parser = std::unique_ptr<nvonnxparser::IParser>( nvonnxparser::createParser( *network, s_logger ) );
++    if ( !parser )
++    {
++        LOG_ERROR( "Could not create ONNX parser." );
++        return false;
++    }
++
++    // Read and parse the ONNX file
++    auto parsed = parser->parseFromFile( onnxModelPath.c_str(), 0 );
++    if ( !parsed )
++    {
++        LOG_ERROR( "Unable to parse the ONNX model at: " + onnxModelPath );
++        return false;
++    }
++
++    // Ensure that all the inputs have the same batch size
++    const int32_t inputCount = network->getNbInputs();
++    if ( inputCount < 1 )
++    {
++        LOG_ERROR( "Model has no inputs." );
++        return false;
++    }
++
++    // Set dynamic axis info for inputs:
++    auto profile = builder->createOptimizationProfile();
++    for ( int32_t i = 0; i < inputCount; ++i )
++    {
++        auto t = network->getInput( i );
++        const auto name = t->getName();
++        auto dims = t->getDimensions();
++
++        bool hasDynamicAxes = false;
++        auto dimsMin = dims;
++        auto dimsOpt = dims;
++        auto dimsMax = dims;
++
++        for ( int32_t n = 0; n < dims.nbDims; ++n )
++        {
++            if ( dims.d[n] == -1 )
++            {
++                auto axis_sizes = options.defaultSizes;
++                if (options.dynamic_axes_names.contains(t->getName()))
++                {
++                    auto& dynamic_axis_names = options.dynamic_axes_names.at(t->getName());
++                    if (!dynamic_axis_names.contains(n))
++                    {
++                        LOG_ERROR("Tensor " + std::string(t->getName()) + " has a dynamic axes, but its name isn't specified in options.input_dynamic_axes");
++                        return false;
++                    }
++
++                    auto axis_name = dynamic_axis_names.at(n);
++                    if (!options.dynamic_axes_sizes.contains(axis_name))
++                    {
++                        LOG_ERROR("Named axis " + axis_name + " has no entry in options.dynamic_axes_sizes");
++                        return false;
++                    }
++                    axis_sizes = options.dynamic_axes_sizes.at(axis_name);
++                }
++
++                hasDynamicAxes = true;
++                dimsMin.d[n] = std::get<0>( axis_sizes );
++                dimsOpt.d[n] = std::get<1>( axis_sizes );
++                dimsMax.d[n] = std::get<2>( axis_sizes );
++            }
++        }
++        profile->setDimensions( name, nvinfer1::OptProfileSelector::kMIN, dimsMin );
++        profile->setDimensions( name, nvinfer1::OptProfileSelector::kOPT, dimsOpt );
++        profile->setDimensions( name, nvinfer1::OptProfileSelector::kMAX, dimsMax );
++
++        if ( t->isShapeTensor() )
++        {
++            if ( !options.shape_tensor_sizes.contains( name ) )
++            {
++                LOG_ERROR( "Tensor " + std::string( name ) + " controls the shape of an internal tensor and needs an entry in options.shape_tensor_sizes" );
++                return false;
++            }
++            auto &sizes = options.shape_tensor_sizes.at( name );
++
++            profile->setShapeValues( name, nvinfer1::OptProfileSelector::kMIN, std::get<0>( sizes ).data(), std::get<0>( sizes ).size());
++            profile->setShapeValues( name, nvinfer1::OptProfileSelector::kOPT, std::get<1>( sizes ).data(), std::get<1>( sizes ).size() );
++            profile->setShapeValues( name, nvinfer1::OptProfileSelector::kMAX, std::get<2>( sizes ).data(), std::get<2>( sizes ).size() );
++        }
++    }
++
++    auto config = std::unique_ptr<nvinfer1::IBuilderConfig>( builder->createBuilderConfig() );
++    if ( !config )
++    {
++        LOG_ERROR( "Could not create builder config." );
++        return false;
++    }
++    config->addOptimizationProfile( profile );
++
++    // Set the precision level
++    if ( options.precision == Precision::FP16 )
++    {
++        // Ensure the GPU supports FP16 inference
++        if ( !builder->platformHasFastFp16() )
++        {
++            LOG_ERROR( "GPU does not support FP16 precision." );
++            return false;
++        }
++        config->setFlag( nvinfer1::BuilderFlag::kFP16 );
++    }
++
++    // CUDA stream used for profiling by the builder.
++    cudaStream_t stream;
++    s_logger.log( cudaStreamCreate( &stream ) );
++    config->setProfileStream( stream );
++
++    // Build the engine
++    // If this call fails, it is suggested to increase the logger verbosity to kVERBOSE and try rebuilding the engine.
++    // Doing so will provide you with more information on why exactly it is failing.
++    auto serializedNetwork = builder->buildSerializedNetwork( *network, *config );
++    if ( !serializedNetwork )
++    {
++        s_logger.log( cudaStreamDestroy( stream ) );
++
++        LOG_ERROR( "Failed to build the engine!" );
++        return false;
++    }
++
++    // Write the engine to disk
++    std::ofstream outfile( trtFile, std::ofstream::binary );
++
++    // Write the onnx/gpu hash first:
++    outfile.write( trtHash.c_str(), trtHash.size() );
++
++    // Write the engine:
++    outfile.write( reinterpret_cast<const char*>( serializedNetwork->data() ), serializedNetwork->size() );
++
++    LOG_INFO( "Saved TRT file to " + trtFile );
++    s_logger.log( cudaStreamDestroy( stream ) );
++
++    return true;
++}
++
++class TRTInferenceEngine::Impl
++{
++public:
++    
++    ~Impl()
++    {
++        Destroy();
++    }
++
++    bool Initialize( const std::string& trtPath, int deviceIndex, const Options::AxisNames& axisNames )
++    {
++        Destroy();
++
++        // Read the serialized model from disk
++        std::ifstream file( trtPath, std::ios::binary | std::ios::ate );
++        std::streamsize size = file.tellg();
++        if (size < 0)
++        {
++            LOG_ERROR("Unable to read engine file!");
++            return false;
++        }
++
++        file.seekg( 0, std::ios::beg );
++        std::vector<char> buffer( size );
++        if ( !file.read( buffer.data(), size ) )
++        {
++            LOG_ERROR( "Unable to read engine file!" );
++            return false;
++        }
++
++        // Create runtime to deserialize the engine file.
++        m_runtime = std::unique_ptr<nvinfer1::IRuntime>( nvinfer1::createInferRuntime( s_logger ) );
++        if ( !m_runtime )
++        {
++            LOG_ERROR( "Unable to create a runtime inference model." );
++            return false;
++        }
++
++        // Set the device index
++        if ( cudaSetDevice( deviceIndex ) != cudaError_t::cudaSuccess )
++        {
++            int gpuCount;
++            cudaGetDeviceCount( &gpuCount );
++            LOG_ERROR( "Unable to set GPU device index to " + std::to_string( deviceIndex ) + ". Current device has " + std::to_string( gpuCount ) + " CUDA - capable GPU(s)." );
++            return false;
++        }
++
++        // Create an engine, a representation of the optimized model.
++        // skip the first 64 bytes when deserializing the engine file as they just contain a hash:
++        m_engine = std::unique_ptr<nvinfer1::ICudaEngine>( m_runtime->deserializeCudaEngine( buffer.data() + 64, buffer.size() - 64 ) );
++        if ( !m_engine )
++        {
++            LOG_ERROR("Unable to create engine.");
++            return false;
++        }
++
++        // The execution context contains all of the state associated with a particular invocation
++        m_context = std::unique_ptr<nvinfer1::IExecutionContext>( m_engine->createExecutionContext() );
++        if ( !m_context )
++        {
++            LOG_ERROR("Unable to create execution context.");
++            return false;
++        }
++
++        m_axis_names = axisNames;
++
++        const uint32_t tensorCount = m_engine->getNbIOTensors();
++        for (int32_t i = 0; i < tensorCount; ++i)
++        {
++            const auto tensorName = m_engine->getIOTensorName(i);
++            const auto tensorIOMode = m_engine->getTensorIOMode(tensorName);
++            m_dataTypeSizes[tensorName] = SizeOfTensorDataType(m_engine->getTensorDataType(tensorName));
++        }
++        
++        return true;
++    }
++
++
++    bool InitInputs(const AxisSizes& axisSizes)
++    {
++        DestroyBuffers();
++
++        const uint32_t tensorCount = m_engine->getNbIOTensors();
++        for (int32_t i = 0; i < tensorCount; ++i)
++        {
++            const auto tensorName = m_engine->getIOTensorName(i);
++            const auto tensorIOMode = m_engine->getTensorIOMode(tensorName);
++            auto tensorShape = m_engine->getTensorShape(tensorName);
++            const auto tensorDataType = m_engine->getTensorDataType(tensorName);
++
++            for (int32_t n = 0; n < tensorShape.nbDims; ++n)
++            {
++                if (tensorShape.d[n] == -1)
++                {
++                    int64_t batchSize = 1;
++                    if (m_axis_names.contains(tensorName))
++                    {
++
++                        auto& dynamic_axis_names = m_axis_names.at(tensorName);
++                        if (!dynamic_axis_names.contains(n))
++                        {
++                            LOG_ERROR("Tensor " + std::string(tensorName) + " has a dynamic axes, but its name isn't specified in axisNames");
++                            return false;
++                        }
++
++                        auto axis_name = dynamic_axis_names.at(n);
++                        if (!axisSizes.contains(axis_name))
++                        {
++                            LOG_ERROR("Named axis " + axis_name + " has no entry in axisSizes");
++                            return false;
++                        }
++
++                        batchSize = axisSizes.at(axis_name);
++                    }
++                    else if (axisSizes.size() > 0)
++                    {
++                        batchSize = axisSizes.begin()->second;
++                    }
++
++                    tensorShape.d[n] = batchSize;
++                    if (tensorIOMode == nvinfer1::TensorIOMode::kINPUT)
++                    {
++                        auto batchMin = m_engine->getProfileShape(tensorName, 0, nvinfer1::OptProfileSelector::kMIN).d[n];
++                        auto batchMax = m_engine->getProfileShape(tensorName, 0, nvinfer1::OptProfileSelector::kMAX).d[n];
++                        if (batchSize < batchMin || batchSize > batchMax)
++                        {
++                            LOG_ERROR("Batch size " + std::to_string(batchSize) + " is outside of possible range [ " + std::to_string(batchMin) + ", " + std::to_string(batchMax) + "].");
++                            return false;
++                        }
++                    }
++                }
++            }
++
++            m_tensorShapes[tensorName] = tensorShape;
++            static const std::string dataTypeStr[] = { "FLOAT", "HALF", "INT8", "INT32", "BOOL", "UINT8", "FP8", "BF16", "INT64" };
++            static const std::string ioTypeStr[] = { "NONE", "INPUT", "OUTPUT" };
++            std::string tensorInfo = ioTypeStr[int(tensorIOMode)] + " Tensor: " + std::string(tensorName) + " [";
++            size_t elementCount = 1;
++            for (int32_t d = 0; d < tensorShape.nbDims; ++d)
++            {
++                if (d != 0)
++                    tensorInfo += ", ";
++
++                tensorInfo += std::to_string(tensorShape.d[d]);
++
++                if (elementCount > INT64_MAX / tensorShape.d[d])
++                {
++                    LOG_ERROR("Tensor too large: element count overflow");
++                    return false;
++                }
++                elementCount *= tensorShape.d[d];
++            }
++            tensorInfo += "]. " + std::to_string(elementCount) + " elements of type " + dataTypeStr[int(tensorDataType)];
++            LOG_INFO(tensorInfo);
++
++            const auto sizeOfTensorData = SizeOfTensorDataType(tensorDataType);
++            if (sizeOfTensorData == -1)
++            {
++                LOG_ERROR("Unknown tensor data type " + std::to_string((int)tensorDataType) + ".");
++                return false;
++            }
++
++            void* cudaBuffer;
++            size_t size = elementCount * sizeOfTensorData;
++            auto err = cudaMalloc(&cudaBuffer, size);
++            s_logger.log(err);
++            if (err != cudaSuccess)
++            {
++                LOG_ERROR("Failed to allocate CUDA memory");
++                return false;
++            }
++
++            s_logger.log(cudaMemset(cudaBuffer, 0, size));
++
++            m_context->setTensorAddress(tensorName, cudaBuffer);
++            if (tensorIOMode == nvinfer1::TensorIOMode::kINPUT)
++            {
++                m_inputBuffers[tensorName] = cudaBuffer;
++            }
++            else
++            {
++                m_outputBuffers[tensorName] = cudaBuffer;
++            }
++        }
++
++        // Set input tensor shapes to specified batch size
++        for (int i = 0; i < tensorCount; ++i)
++        {
++            const auto tensorName = m_engine->getIOTensorName(i);
++            if (m_engine->getTensorIOMode(tensorName) != nvinfer1::TensorIOMode::kINPUT)
++                continue;
++
++            auto tensorShape = m_tensorShapes[tensorName];
++
++            m_context->setInputShape(tensorName, tensorShape);
++        }
++
++        return true;
++    }
++
++    void DestroyBuffers()
++    {
++        for (auto& kv : m_inputBuffers)
++        {
++            s_logger.log(cudaFree(kv.second));
++        }
++        for (auto& kv : m_outputBuffers)
++        {
++            s_logger.log(cudaFree(kv.second));
++        }
++
++        m_inputBuffers.clear();
++        m_outputBuffers.clear();
++        m_tensorShapes.clear();
++    }
++
++    void Destroy()
++    {
++        DestroyBuffers();
++
++        m_context.reset();
++        m_engine.reset();
++        m_runtime.reset();
++    }
++
++    bool ValidateTensorSize(const std::string& name, size_t byteCount) const
++    {
++        if (m_tensorShapes.empty())
++        {
++            LOG_ERROR("ValidateTensorSize: InitInputs has not been called.");
++            return false;
++        }
++
++        if (!m_tensorShapes.contains(name))
++        {
++            LOG_ERROR("ValidateTensorSize: Tensor " + name + " not found.");
++            return false;
++        }
++
++        size_t elementCount = 1;
++        const auto& tensorShape = m_tensorShapes.at(name);
++        for (int32_t d = 0; d < tensorShape.nbDims; ++d)
++            elementCount *= tensorShape.d[d];
++
++        const size_t expectedByteCount = elementCount * m_dataTypeSizes.at(name);
++        if (expectedByteCount != byteCount)
++        {
++            LOG_ERROR(
++                "Invalid data size for tensor [" + name + "] containing " + std::to_string(elementCount) + " elements. Expected " +
++                std::to_string(expectedByteCount) + " bytes, got " + std::to_string(byteCount) + " bytes instead.");
++            return false;
++        }
++
++        return true;
++    }
++
++    std::vector<std::string> GetInputBufferNames() const
++    {
++        std::vector<std::string> names;
++        names.reserve(m_inputBuffers.size());
++
++        for (const auto& pair : m_inputBuffers) 
++        {
++            names.push_back(pair.first);
++        }
++        return names;
++    }
++
++    std::vector<std::string> GetOutputBufferNames() const
++    {
++        std::vector<std::string> names;
++        names.reserve(m_outputBuffers.size());
++
++        for (const auto& pair : m_outputBuffers)
++        {
++            names.push_back(pair.first);
++        }
++        return names;
++    }
++
++    void SetInputData(const std::string& name, const void* data, size_t byteCount)
++    {
++        if(!ValidateTensorSize(name, byteCount))
++        {
++            LOG_ERROR("SetInputData: Tensor " + name + " is not valid.");
++            return;
++        }
++        s_logger.log(cudaMemcpy(m_inputBuffers[name], data, byteCount, cudaMemcpyHostToDevice));
++    }
++
++    void SetInputDataAsync(const std::string& name, const void* data, size_t byteCount, cudaStream_t stream)
++    {
++        if(!ValidateTensorSize(name, byteCount))
++        {
++            LOG_ERROR("SetInputDataAsync: Tensor " + name + " is not valid.");
++            return;
++        }
++        s_logger.log(cudaMemcpyAsync(m_inputBuffers[name], data, byteCount, cudaMemcpyHostToDevice, stream));
++    }
++
++    void GetOutputData(const std::string& name, void* data, size_t byteCount)
++    {
++        if(!ValidateTensorSize(name, byteCount))
++        {
++            LOG_ERROR("GetOutputData: Tensor " + name + " is not valid.");
++            return;
++        }
++        s_logger.log(cudaMemcpy(data, m_outputBuffers[name], byteCount, cudaMemcpyDeviceToHost));
++    }
++
++    void GetOutputDataAsync(const std::string& name, void* data, size_t byteCount, cudaStream_t stream)
++    {
++        if(!ValidateTensorSize(name, byteCount))
++        {
++            LOG_ERROR("GetOutputDataAsync: Tensor " + name + " is not valid.");
++            return;
++        }
++        s_logger.log(cudaMemcpyAsync(data, m_outputBuffers[name], byteCount, cudaMemcpyDeviceToHost, stream));
++    }
++
++    bool Enqueue( cudaStream_t stream )
++    {
++        if (m_tensorShapes.empty())
++        {
++            LOG_ERROR("Enqueue: InitInputs has not been called.");
++            return false;
++        }
++
++        if (!m_context->allInputDimensionsSpecified())
++        {
++            LOG_ERROR("Inference engine inputs aren't defined.");
++            return false;
++        }
++
++        if(!m_context->enqueueV3(stream))
++        {
++            LOG_ERROR("Enqueue: Failed to enqueue.");
++            return false;
++        }
++        return true;
++    }
++
++    bool GetTensorShape(std::string name, std::vector<int64_t>& shape) const
++    {
++        if (m_tensorShapes.empty())
++        {
++            LOG_ERROR("ValidateTensorSize: InitInputs has not been called.");
++            return false;
++        }
++
++        if (!m_tensorShapes.contains(name))
++        {
++            LOG_ERROR("ValidateTensorSize: Tensor " + name + " not found.");
++            return false;
++        }
++
++        const auto& tensorShape = m_tensorShapes.at(name);
++        shape.clear();
++        for (int dim=0; dim < tensorShape.nbDims; ++dim)
++        {
++            shape.push_back(tensorShape.d[dim]);
++        }
++        return true;
++    }
++
++    nvinfer1::DataType GetTensorDataType(std::string name) const
++    {
++        auto tensorDataType = m_engine->getTensorDataType(name.c_str());
++        return tensorDataType;
++    }
++
++    std::unique_ptr<nvinfer1::IExecutionContext> m_context = nullptr;
++    std::unique_ptr<nvinfer1::ICudaEngine> m_engine = nullptr;
++    std::unique_ptr<nvinfer1::IRuntime> m_runtime = nullptr;
++
++    std::map<std::string, nvinfer1::Dims> m_tensorShapes;
++
++    std::map<std::string, void*> m_inputBuffers;
++    std::map<std::string, void*> m_outputBuffers;
++
++    std::map<std::string, int> m_dataTypeSizes;
++
++    Options::AxisNames m_axis_names;
++};
++
++TRTInferenceEngine::TRTInferenceEngine() : m_impl( new Impl )
++{
++}
++
++TRTInferenceEngine::~TRTInferenceEngine()
++{
++}
++
++std::shared_ptr<TRTInferenceEngine> AcquireSharedTRTInferenceEngine(
++    const std::string& trtPath,
++    int deviceID,
++    const Options::AxisNames& axisNames,
++    const TRTInferenceEngine::AxisSizes& axisSizes)
++{
++    static std::mutex cacheMutex;
++    static std::unordered_map<std::string, std::weak_ptr<TRTInferenceEngine>> cache;
++    std::string key = trtPath + "#device=" + std::to_string(deviceID);
++    for (const auto& [axis, size] : axisSizes) {
++        key += "#" + axis + "=" + std::to_string(size);
++    }
++    std::lock_guard<std::mutex> lock(cacheMutex);
++    if (auto existing = cache[key].lock()) {
++        return existing;
++    }
++    auto engine = std::make_shared<TRTInferenceEngine>();
++    if (!engine->Initialize(trtPath, deviceID, axisNames) ||
++        !engine->InitInputs(axisSizes)) {
++        return nullptr;
++    }
++    cache[key] = engine;
++    return engine;
++}
++
++bool TRTInferenceEngine::Initialize(const std::string& trtPath, int deviceIndex, const Options::AxisNames& axisNames)
++{
++    return m_impl->Initialize(trtPath, deviceIndex, axisNames);
++}
++
++bool TRTInferenceEngine::InitInputs(const AxisSizes& axisSizes)
++{
++    return m_impl->InitInputs(axisSizes);
++}
++
++void TRTInferenceEngine::Destroy()
++{
++    m_impl->Destroy();
++}
++
++std::vector<std::string> TRTInferenceEngine::GetInputTensorNames() const
++{
++    return m_impl->GetInputBufferNames();
++}
++
++std::vector<std::string> TRTInferenceEngine::GetOutputTensorNames() const
++{
++    return m_impl->GetOutputBufferNames();
++}
++
++void TRTInferenceEngine::SetInputData(const std::string& name, const void* data, size_t byteCount)
++{
++    m_impl->SetInputData(name, data, byteCount);
++}
++
++void TRTInferenceEngine::GetOutputData(const std::string& name, void* data, size_t byteCount)
++{
++    m_impl->GetOutputData( name, data, byteCount);
++}
++
++void TRTInferenceEngine::SetInputDataAsync(const std::string& name, const void* data, size_t byteCount, cudaStream_t stream)
++{
++    m_impl->SetInputDataAsync(name, data, byteCount, stream);
++}
++
++void TRTInferenceEngine::GetOutputDataAsync(const std::string& name, void* data, size_t byteCount, cudaStream_t stream)
++{
++    m_impl->GetOutputDataAsync(name, data, byteCount, stream);
++}
++
++bool TRTInferenceEngine::Enqueue(cudaStream_t stream)
++{
++    return m_impl->Enqueue(stream);
++}
++
++bool TRTInferenceEngine::GetTensorShape(std::string name, std::vector<int64_t>& shape) const
++{
++    return m_impl->GetTensorShape(name, shape);
++}
++
++DataType TRTInferenceEngine::GetTensorDataType(std::string name) const
++{
++    auto dataType = m_impl->GetTensorDataType(name);
++    switch (dataType)
++    {
++        case nvinfer1::DataType::kFLOAT:
++        return DataType::FLOAT;
++        case nvinfer1::DataType::kHALF:
++        return DataType::HALF;
++        case nvinfer1::DataType::kINT8:
++        return DataType::INT8;
++        case nvinfer1::DataType::kINT32:
++        return DataType::INT32;
++        case nvinfer1::DataType::kBOOL:
++        return DataType::BOOL;
++        case nvinfer1::DataType::kUINT8:
++        return DataType::UINT8;
++        case nvinfer1::DataType::kINT64:
++        return DataType::INT64;
++        default:
++        LOG_ERROR("ValidateTensorSize: Tensor " + name + " not found.");
++        return DataType::UNKNOWN;
++    }
++}
+diff --git a/gear_sonic_deploy/src/TRTInference/InferenceEngine.h b/gear_sonic_deploy/src/TRTInference/InferenceEngine.h
+index e4ee684..1bd83b4 100644
+--- a/gear_sonic_deploy/src/TRTInference/InferenceEngine.h
++++ b/gear_sonic_deploy/src/TRTInference/InferenceEngine.h
+@@ -1,93 +1,103 @@
+-#pragma once
+-
+-#include "Utility.h"
+-
+-#include <string>
+-#include <memory>
+-#include <vector>
+-#include <map>
+-
+-enum class Precision
+-{
+-    FP32,
+-    FP16
+-};
+-
+-enum class DataType
+-{
+-    FLOAT,
+-    HALF,
+-    INT8,
+-    INT32,
+-    BOOL,
+-    UINT8,
+-    INT64,
+-    UNKNOWN
+-};
+-
+-
+-struct Options
+-{
+-    using AxisNames = std::map< std::string, std::map<int, std::string> >;
+-    using AxisSizes = std::map<std::string, std::tuple<int, int, int> >;
+-    using ShapeTensorSizes = std::map<std::string, std::tuple<std::vector<int>, std::vector<int>, std::vector<int>> >;
+-
+-    Precision        precision = Precision::FP32;
+-    AxisNames        dynamic_axes_names;
+-    AxisSizes        dynamic_axes_sizes;
+-    ShapeTensorSizes shape_tensor_sizes;
+-    std::tuple<int, int, int> defaultSizes = { 1,8,16 };
+-    int              deviceID = 0;
+-};
+-
+-bool ConvertONNXToTRT(
+-    const Options& options,
+-    const std::string& onnxModelPath,
+-    std::string& generatedTRTFile,
+-    const std::string prefix = "",
+-    bool forceConvert = false
+-);
+-
+-// Forward declaration
+-typedef struct CUstream_st *cudaStream_t;
+-
+-class TRTInferenceEngine
+-{
+-public:
+-    TRTInferenceEngine();
+-    ~TRTInferenceEngine();
+-
+-    using AxisSizes = std::map<std::string, int >;
+-    bool Initialize(const std::string& trtPath, int deviceID, const Options::AxisNames& axisNames = {});
+-    bool InitInputs(const AxisSizes& axisSizes = {});
+-    void Destroy();
+-
+-    void SetInputData(const std::string& name, const void* data, size_t byteCount);
+-    template<typename T> void SetInputData(const std::string& name, const T* data, size_t elementCount);
+-    template<typename T> void SetInputData(const std::string& name, const TPinnedVector<T>& data);
+-
+-    void GetOutputData(const std::string& name, void* data, size_t byteCount);
+-    template<typename T> void GetOutputData(const std::string& name, T* data, size_t elementCount);
+-    template<typename T> void GetOutputData(const std::string& name, TPinnedVector<T>& data);
+-
+-    void SetInputDataAsync(const std::string& name, const void* data, size_t byteCount, cudaStream_t stream);
+-    template<typename T> void SetInputDataAsync(const std::string& name, const T* data, size_t elementCount, cudaStream_t stream);
+-    template<typename T> void SetInputDataAsync(const std::string& name, const TPinnedVector<T>& data, cudaStream_t stream);
+-
+-    void GetOutputDataAsync(const std::string& name, void* data, size_t byteCount, cudaStream_t stream);
+-    template<typename T> void GetOutputDataAsync(const std::string& name, T* data, size_t elementCount, cudaStream_t stream);
+-    template<typename T> void GetOutputDataAsync(const std::string& name, TPinnedVector<T>& data, cudaStream_t stream);
+-
+-    std::vector<std::string> GetInputTensorNames() const;
+-    std::vector<std::string> GetOutputTensorNames() const;
+-
+-    bool GetTensorShape(std::string name, std::vector<int64_t>& shape) const;
+-    DataType GetTensorDataType(std::string name) const;
+-    bool Enqueue(cudaStream_t stream);
+-
+-private:
+-    class Impl;
+-    std::shared_ptr<Impl> m_impl = nullptr;
+-};
+-
+-#include "InferenceEngine.inl"
++#pragma once
++
++#include "Utility.h"
++
++#include <string>
++#include <memory>
++#include <vector>
++#include <map>
++
++enum class Precision
++{
++    FP32,
++    FP16
++};
++
++enum class DataType
++{
++    FLOAT,
++    HALF,
++    INT8,
++    INT32,
++    BOOL,
++    UINT8,
++    INT64,
++    UNKNOWN
++};
++
++
++struct Options
++{
++    using AxisNames = std::map< std::string, std::map<int, std::string> >;
++    using AxisSizes = std::map<std::string, std::tuple<int, int, int> >;
++    using ShapeTensorSizes = std::map<std::string, std::tuple<std::vector<int>, std::vector<int>, std::vector<int>> >;
++
++    Precision        precision = Precision::FP32;
++    AxisNames        dynamic_axes_names;
++    AxisSizes        dynamic_axes_sizes;
++    ShapeTensorSizes shape_tensor_sizes;
++    std::tuple<int, int, int> defaultSizes = { 1,8,16 };
++    int              deviceID = 0;
++};
++
++bool ConvertONNXToTRT(
++    const Options& options,
++    const std::string& onnxModelPath,
++    std::string& generatedTRTFile,
++    const std::string prefix = "",
++    bool forceConvert = false
++);
++
++// Forward declaration
++typedef struct CUstream_st *cudaStream_t;
++
++class TRTInferenceEngine
++{
++public:
++    TRTInferenceEngine();
++    ~TRTInferenceEngine();
++
++    using AxisSizes = std::map<std::string, int >;
++    bool Initialize(const std::string& trtPath, int deviceID, const Options::AxisNames& axisNames = {});
++    bool InitInputs(const AxisSizes& axisSizes = {});
++    void Destroy();
++
++    void SetInputData(const std::string& name, const void* data, size_t byteCount);
++    template<typename T> void SetInputData(const std::string& name, const T* data, size_t elementCount);
++    template<typename T> void SetInputData(const std::string& name, const TPinnedVector<T>& data);
++
++    void GetOutputData(const std::string& name, void* data, size_t byteCount);
++    template<typename T> void GetOutputData(const std::string& name, T* data, size_t elementCount);
++    template<typename T> void GetOutputData(const std::string& name, TPinnedVector<T>& data);
++
++    void SetInputDataAsync(const std::string& name, const void* data, size_t byteCount, cudaStream_t stream);
++    template<typename T> void SetInputDataAsync(const std::string& name, const T* data, size_t elementCount, cudaStream_t stream);
++    template<typename T> void SetInputDataAsync(const std::string& name, const TPinnedVector<T>& data, cudaStream_t stream);
++
++    void GetOutputDataAsync(const std::string& name, void* data, size_t byteCount, cudaStream_t stream);
++    template<typename T> void GetOutputDataAsync(const std::string& name, T* data, size_t elementCount, cudaStream_t stream);
++    template<typename T> void GetOutputDataAsync(const std::string& name, TPinnedVector<T>& data, cudaStream_t stream);
++
++    std::vector<std::string> GetInputTensorNames() const;
++    std::vector<std::string> GetOutputTensorNames() const;
++
++    bool GetTensorShape(std::string name, std::vector<int64_t>& shape) const;
++    DataType GetTensorDataType(std::string name) const;
++    bool Enqueue(cudaStream_t stream);
++
++private:
++    class Impl;
++    std::shared_ptr<Impl> m_impl = nullptr;
++};
++
++// Reuse one deserialized TensorRT engine/context for stateful policy sessions
++// that are executed serially by the SPARK batch server.  The neural-network
++// weights and device buffers dominate per-session GPU memory; recurrent robot
++// and planner state remains owned by each G1Deploy instance.
++std::shared_ptr<TRTInferenceEngine> AcquireSharedTRTInferenceEngine(
++    const std::string& trtPath,
++    int deviceID,
++    const Options::AxisNames& axisNames = {},
++    const TRTInferenceEngine::AxisSizes& axisSizes = {});
++
++#include "InferenceEngine.inl"
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt
+index b713922..d1abf1f 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt
+@@ -136,6 +136,12 @@ if(NOT ZMQ_INCLUDE_DIR OR NOT ZMQ_LIBRARY)
+   message(FATAL_ERROR "❌ libzmq is required but not found. Please install libzmq-dev (apt) or zeromq (brew)")
+ endif()
+ 
++set(CPPZMQ_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/thirdparty/cppzmq")
++if(EXISTS "${CPPZMQ_INCLUDE_DIR}/zmq.hpp")
++  message(STATUS "✅ Using vendored cppzmq headers: ${CPPZMQ_INCLUDE_DIR}")
++  set(CPPZMQ_INCLUDE_DIRS ${CPPZMQ_INCLUDE_DIR})
++endif()
++
+ # Add ZMQ to main executable
+ message(STATUS "✅ ZMQ support enabled for main executable")
+ 
+@@ -145,8 +151,9 @@ if(ZMQ_INCLUDE_DIR AND ZMQ_LIBRARY)
+     ${CMAKE_CURRENT_SOURCE_DIR}/tests/zmq_pose_subscriber_test.cpp)
+   target_include_directories(zmq_pose_subscriber_test PRIVATE
+     ${CMAKE_CURRENT_SOURCE_DIR}/include
++    ${CPPZMQ_INCLUDE_DIRS}
+     ${ZMQ_INCLUDE_DIR})
+-  target_link_libraries(zmq_pose_subscriber_test PRIVATE ${ZMQ_LIBRARY})
++  target_link_libraries(zmq_pose_subscriber_test PRIVATE ${ZMQ_LIBRARY} Threads::Threads)
+   set_target_properties(zmq_pose_subscriber_test PROPERTIES
+     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/target/release/"
+     CXX_STANDARD 20
+@@ -159,8 +166,9 @@ if(ZMQ_INCLUDE_DIR AND ZMQ_LIBRARY)
+     ${CMAKE_CURRENT_SOURCE_DIR}/tests/zmq_python_sender_test.cpp)
+   target_include_directories(zmq_python_sender_test PRIVATE
+     ${CMAKE_CURRENT_SOURCE_DIR}/include
++    ${CPPZMQ_INCLUDE_DIRS}
+     ${ZMQ_INCLUDE_DIR})
+-  target_link_libraries(zmq_python_sender_test PRIVATE ${ZMQ_LIBRARY})
++  target_link_libraries(zmq_python_sender_test PRIVATE ${ZMQ_LIBRARY} Threads::Threads)
+   set_target_properties(zmq_python_sender_test PROPERTIES
+     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/target/release/"
+     CXX_STANDARD 20
+@@ -175,6 +183,7 @@ find_package(Eigen3 REQUIRED)
+ 
+ set(EXE_INCLUDES
+   ${CMAKE_CURRENT_SOURCE_DIR}/include/
++  ${CPPZMQ_INCLUDE_DIRS}
+   ${ZMQ_INCLUDE_DIR}
+   ${EIGEN3_INCLUDE_DIR}
+ )
+@@ -194,6 +203,7 @@ set(EXE_LIBS
+   ${TensorRT_nvinfer_LIBRARY} ${TensorRT_nvonnxparser_LIBRARY}
+   ${CUDLA_LIBRARY}
+   ${ZMQ_LIBRARY}
++  Threads::Threads
+ )
+ 
+ 
+@@ -258,4 +268,4 @@ set_target_properties(
+              OUTPUT_NAME run_tests
+              CXX_STANDARD 20
+              CXX_STANDARD_REQUIRED ON
+-             CXX_EXTENSIONS OFF)
+\ No newline at end of file
++             CXX_EXTENSIONS OFF)
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/control_policy.hpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/control_policy.hpp
+index 040dcf5..2cc09be 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/control_policy.hpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/control_policy.hpp
+@@ -53,7 +53,8 @@ public:
+    * @param use_fp16 Whether to use FP16 precision
+    * @return true if initialization successful, false otherwise
+    */
+-  bool Initialize(const std::string& model_path, bool use_fp16 = false) {
++  bool Initialize(const std::string& model_path, bool use_fp16 = false,
++                  size_t batch_size = 1) {
+     if (model_path.empty()) {
+       std::cerr << "✗ PolicyEngine::Initialize - Empty model path" << std::endl;
+       return false;
+@@ -65,16 +66,22 @@ public:
+     try {
+       std::cout << "Loading policy model..." << std::endl;
+ 
+-      inference_engine_ = std::make_unique<TRTInferenceEngine>();
+-
+       // Setup options for ONNX to TensorRT conversion
+       Options options;
+       options.deviceID = config_.device_id;
++      if (batch_size > 1) {
++        options.dynamic_axes_names["obs_dict"][0] = "batch";
++        options.dynamic_axes_sizes["batch"] = {
++          1, static_cast<int>(batch_size), static_cast<int>(batch_size)};
++      }
+       std::string prefix("policy_");
+       if (use_fp16) { 
+         options.precision = Precision::FP16; 
+         prefix += "fp16_"; 
+       }
++      if (batch_size > 1) {
++        prefix += "batch" + std::to_string(batch_size) + "_";
++      }
+ 
+       std::string cached_trt_file;
+       if (!ConvertONNXToTRT(options, model_path, cached_trt_file, prefix, false)) {
+@@ -83,15 +90,12 @@ public:
+         return false;
+       }
+ 
+-      if (!inference_engine_->Initialize(cached_trt_file, options.deviceID, options.dynamic_axes_names)) {
++      TRTInferenceEngine::AxisSizes axis_sizes;
++      if (batch_size > 1) axis_sizes["batch"] = static_cast<int>(batch_size);
++      inference_engine_ = AcquireSharedTRTInferenceEngine(
++        cached_trt_file, options.deviceID, options.dynamic_axes_names, axis_sizes);
++      if (!inference_engine_) {
+         std::cerr << "✗ Failed to initialize policy TensorRT model: " << cached_trt_file << std::endl;
+-        inference_engine_.reset();
+-        return false;
+-      }
+-
+-      if (!inference_engine_->InitInputs({})) {
+-        std::cerr << "✗ Failed to initialize policy TensorRT model inputs" << std::endl;
+-        inference_engine_.reset();
+         return false;
+       }
+ 
+@@ -124,10 +128,12 @@ public:
+       std::vector<int64_t> input_dims;
+       inference_engine_->GetTensorShape(input_tensor_name_, input_dims);
+       
+-      config_.input_dimension = std::accumulate(
++      const size_t total_input_dimension = std::accumulate(
+         input_dims.begin(), input_dims.end(), static_cast<size_t>(1), std::multiplies<size_t>()
+       );
+-      policy_input_buffer_.resize(config_.input_dimension, 0.0f);
++      config_.batch_size = batch_size;
++      config_.input_dimension = total_input_dimension / batch_size;
++      policy_input_buffer_.resize(total_input_dimension, 0.0f);
+       
+       // Set initial input data (zeros)
+       inference_engine_->SetInputData(input_tensor_name_, policy_input_buffer_);
+@@ -158,9 +164,10 @@ public:
+       // Get output dimensions
+       std::vector<int64_t> output_dims;
+       if (inference_engine_->GetTensorShape(output_tensor_name_, output_dims)) {
+-        config_.action_dimension = std::accumulate(
++        const size_t total_action_dimension = std::accumulate(
+           output_dims.begin(), output_dims.end(), 1, std::multiplies<size_t>()
+         );
++        config_.action_dimension = total_action_dimension / batch_size;
+       }
+ 
+       // Validate action dimension matches robot configuration
+@@ -171,7 +178,7 @@ public:
+         return false;
+       }
+ 
+-      action_buffer_.resize(config_.action_dimension, 0.0f);
++      action_buffer_.resize(config_.action_dimension * batch_size, 0.0f);
+ 
+       // Create CUDA stream
+       cudaError_t cuda_status = cudaStreamCreate(&cuda_stream_);
+@@ -331,6 +338,7 @@ public:
+    * @return Action dimension size
+    */
+   size_t GetActionDimension() const { return config_.action_dimension; }
++  size_t GetBatchSize() const { return config_.batch_size; }
+ 
+   /**
+    * @brief Check if control policy is initialized
+@@ -398,7 +406,6 @@ public:
+       cuda_stream_ = nullptr; 
+     }
+     if (inference_engine_) { 
+-      inference_engine_->Destroy(); 
+       inference_engine_.reset(); 
+     }
+     graph_captured_ = false; 
+@@ -412,12 +419,13 @@ private:
+     int device_id = 0;
+     size_t input_dimension = 0;
+     size_t action_dimension = 0;
++    size_t batch_size = 1;
+     bool use_fp16 = false;
+   };
+   Config config_;
+ 
+   // TensorRT inference engine
+-  std::unique_ptr<TRTInferenceEngine> inference_engine_;
++  std::shared_ptr<TRTInferenceEngine> inference_engine_;
+ 
+   // Tensor names
+   std::string input_tensor_name_;
+@@ -440,4 +448,3 @@ private:
+ };
+ 
+ #endif // POLICY_ENGINE_HPP
+-
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/encoder.hpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/encoder.hpp
+index 7d912b5..1e8fd36 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/encoder.hpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/encoder.hpp
+@@ -60,7 +60,8 @@ public:
+    * @param use_fp16 Whether to use FP16 precision
+    * @return true if initialization successful, false otherwise
+    */
+-  bool Initialize(const std::string& model_path, bool use_fp16 = false) {
++  bool Initialize(const std::string& model_path, bool use_fp16 = false,
++                  size_t batch_size = 1) {
+     if (model_path.empty()) {
+       std::cerr << "✗ EncoderEngine::Initialize - Empty model path" << std::endl;
+       return false;
+@@ -72,12 +73,18 @@ public:
+     try {
+       std::cout << "Loading encoder model..." << std::endl;
+ 
+-      inference_engine_ = std::make_unique<TRTInferenceEngine>();
+-
+       Options options;
+       options.deviceID = config_.device_id;
++      if (batch_size > 1) {
++        options.dynamic_axes_names["obs_dict"][0] = "batch";
++        options.dynamic_axes_sizes["batch"] = {
++          1, static_cast<int>(batch_size), static_cast<int>(batch_size)};
++      }
+       std::string prefix("encoder_");
+       if (use_fp16) { options.precision = Precision::FP16; prefix += "fp16_"; }
++      if (batch_size > 1) {
++        prefix += "batch" + std::to_string(batch_size) + "_";
++      }
+ 
+       std::string cached_trt_file;
+       if (!ConvertONNXToTRT(options, model_path, cached_trt_file, prefix, false)) {
+@@ -86,15 +93,12 @@ public:
+         return false;
+       }
+ 
+-      if (!inference_engine_->Initialize(cached_trt_file, options.deviceID, options.dynamic_axes_names)) {
++      TRTInferenceEngine::AxisSizes axis_sizes;
++      if (batch_size > 1) axis_sizes["batch"] = static_cast<int>(batch_size);
++      inference_engine_ = AcquireSharedTRTInferenceEngine(
++        cached_trt_file, options.deviceID, options.dynamic_axes_names, axis_sizes);
++      if (!inference_engine_) {
+         std::cerr << "✗ Failed to initialize encoder TensorRT model: " << cached_trt_file << std::endl;
+-        inference_engine_.reset();
+-        return false;
+-      }
+-
+-      if (!inference_engine_->InitInputs({})) {
+-        std::cerr << "✗ Failed to initialize encoder TensorRT model inputs" << std::endl;
+-        inference_engine_.reset();
+         return false;
+       }
+ 
+@@ -122,10 +126,12 @@ public:
+ 
+       std::vector<int64_t> output_dims;
+       if (inference_engine_->GetTensorShape(output_tensor_name_, output_dims)) {
+-        config_.token_dimension = std::accumulate(output_dims.begin(), output_dims.end(), static_cast<size_t>(1), std::multiplies<size_t>());
++        config_.token_dimension = std::accumulate(
++            output_dims.begin(), output_dims.end(), static_cast<size_t>(1),
++            std::multiplies<size_t>()) / batch_size;
+       }
+ 
+-      token_buffer_.resize(config_.token_dimension, 0.0f);
++      token_buffer_.resize(config_.token_dimension * batch_size, 0.0f);
+ 
+       auto input_names = inference_engine_->GetInputTensorNames();
+       if (input_names.empty()) {
+@@ -164,8 +170,8 @@ public:
+       
+       config_.input_dimension = std::accumulate(
+         input_dims.begin(), input_dims.end(), static_cast<size_t>(1), std::multiplies<size_t>()
+-      );
+-      encoder_input_buffer_.resize(config_.input_dimension, 0.0f);
++      ) / batch_size;
++      encoder_input_buffer_.resize(config_.input_dimension * batch_size, 0.0f);
+       
+       // Set initial input data (zeros)
+       inference_engine_->SetInputData(input_tensor_name_, encoder_input_buffer_);
+@@ -372,7 +378,7 @@ public:
+     if (cuda_graph_exec_ != nullptr) { cudaGraphExecDestroy(cuda_graph_exec_); cuda_graph_exec_ = nullptr; }
+     if (cuda_graph_ != nullptr) { cudaGraphDestroy(cuda_graph_); cuda_graph_ = nullptr; }
+     if (cuda_stream_ != nullptr) { cudaStreamDestroy(cuda_stream_); cuda_stream_ = nullptr; }
+-    if (inference_engine_) { inference_engine_->Destroy(); inference_engine_.reset(); }
++    if (inference_engine_) { inference_engine_.reset(); }
+     graph_captured_ = false; initialized_ = false;
+   }
+ 
+@@ -388,7 +394,7 @@ private:
+   Config config_;
+ 
+   // TensorRT inference engine
+-  std::unique_ptr<TRTInferenceEngine> inference_engine_;
++  std::shared_ptr<TRTInferenceEngine> inference_engine_;
+ 
+   // Tensor names
+   std::string input_tensor_name_;
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner.hpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner.hpp
+index 8dc5737..c03f1d2 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner.hpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner.hpp
+@@ -235,6 +235,49 @@ struct PlannerTiming {
+  */
+ class LocalMotionPlannerBase {
+ public:
++
++    // Split-phase API used by the SPARK batch server.  Each planner retains
++    // its own command/context/history state; only the model invocation is
++    // delegated to a shared batched TensorRT planner.
++    bool PrepareInitialize(
++        const std::array<double, 4>& base_quat,
++        const std::array<double, 29>& joint_positions) {
++        planner_state_.initialized = false;
++        if (!InitializeSpecific()) return false;
++        UpdateInputTensors(static_cast<int>(LocomotionMode::IDLE), -1.0, -1.0,
++                           {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f},
++                           current_random_seed_);
++        gen_frame_ = 0;
++        InitializeContext(base_quat, joint_positions);
++        prepared_initialization_ = true;
++        return true;
++    }
++
++    bool PrepareUpdatePlanning(
++        int gen_frame,
++        const std::shared_ptr<const MotionSequence>& motion_sequence,
++        int mode_value,
++        float target_vel,
++        float target_height,
++        const std::array<float, 3>& movement_direction,
++        const std::array<float, 3>& facing_direction,
++        int random_seed = -1) {
++        if (!ValidatePlanningInputs()) return false;
++        UpdateInputTensors(mode_value, target_vel, target_height,
++                           movement_direction, facing_direction, random_seed);
++        gen_frame_ = gen_frame + config_.motion_look_ahead_steps;
++        UpdateContextFromMotion(motion_sequence);
++        prepared_initialization_ = false;
++        return true;
++    }
++
++    bool CompletePreparedInference() {
++        if (!ResampleGeneratedSequence50Hz()) return false;
++        if (prepared_initialization_) planner_state_.initialized = true;
++        return true;
++    }
++
++    const PlannerConfig& GetConfig() const { return config_; }
+     /**
+      * @brief Constructor with common configuration
+      */
+@@ -272,6 +315,7 @@ public:
+ protected:
+     // Common configuration
+     PlannerConfig config_;
++    bool prepared_initialization_ = false;
+ 
+ public:
+ 
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner_tensorrt.hpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner_tensorrt.hpp
+index 48b7986..deab832 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner_tensorrt.hpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/localmotion_kplanner_tensorrt.hpp
+@@ -57,13 +57,12 @@ public:
+      */
+     LocalMotionPlannerTensorRT(bool use_fp16,
+                                int device_id = 0,
+-                               const PlannerConfig& config = PlannerConfig())
++                               const PlannerConfig& config = PlannerConfig(),
++                               size_t batch_size = 1)
+         : LocalMotionPlannerBase(config), use_fp16_(use_fp16),
+-          device_id_(device_id), cuda_stream_(nullptr), graph_(nullptr), graphExec_(nullptr) {
++          device_id_(device_id), batch_size_(batch_size), cuda_stream_(nullptr), graph_(nullptr), graphExec_(nullptr) {
+         
+         // Initialize TensorRT engine
+-        inference_engine_ = std::make_unique<TRTInferenceEngine>();
+-
+         // Clear all input value vectors and ensure correct sizes:
+         mode_values_.clear();
+         target_vel_values_.clear();
+@@ -72,12 +71,12 @@ public:
+         random_seed_values_.clear();
+         context_qpos_values_.clear();
+ 
+-        mode_values_.resize(1);
+-        target_vel_values_.resize(1);
+-        movement_direction_values_.resize(3, 0.0f);
+-        facing_direction_values_.resize(3, 0.0f);
+-        random_seed_values_.resize(1);
+-        context_qpos_values_.resize(4 * (G1_NUM_MOTOR + 7));
++        mode_values_.resize(batch_size_);
++        target_vel_values_.resize(batch_size_);
++        movement_direction_values_.resize(batch_size_ * 3, 0.0f);
++        facing_direction_values_.resize(batch_size_ * 3, 0.0f);
++        random_seed_values_.resize(batch_size_);
++        context_qpos_values_.resize(batch_size_ * 4 * (G1_NUM_MOTOR + 7));
+ 
+         {
+             // version 1
+@@ -87,19 +86,21 @@ public:
+             specific_target_headings_.clear(); 
+             allowed_pred_num_tokens_.clear(); 
+ 
+-            target_height_values_.resize(1,-1.0f); 
+-            has_specific_target_.resize(1,0); 
+-            specific_target_positions_.resize(12,0.0f); 
+-            specific_target_headings_.resize(4,0.0f); 
+-            allowed_pred_num_tokens_.resize(11,0);
++            target_height_values_.resize(batch_size_,-1.0f);
++            has_specific_target_.resize(batch_size_,0);
++            specific_target_positions_.resize(batch_size_ * 12,0.0f);
++            specific_target_headings_.resize(batch_size_ * 4,0.0f);
++            allowed_pred_num_tokens_.resize(batch_size_ * 11,0);
+ 
+             // set allowed_pred_num_tokens_ to [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0]
+             allowed_pred_num_tokens_[0] = 0; // 6 tokens
+             allowed_pred_num_tokens_[1] = 0; // 7
+             allowed_pred_num_tokens_[2] = 0; // 8
+-            allowed_pred_num_tokens_[3] = 1; // 9
+-            allowed_pred_num_tokens_[4] = 1; // 10
+-            allowed_pred_num_tokens_[5] = 1;
++            for (size_t row = 0; row < batch_size_; ++row) {
++                allowed_pred_num_tokens_[row * 11 + 3] = 1;
++                allowed_pred_num_tokens_[row * 11 + 4] = 1;
++                allowed_pred_num_tokens_[row * 11 + 5] = 1;
++            }
+         }
+ 
+ 
+@@ -108,8 +109,8 @@ public:
+         num_pred_frames_values_.clear();
+         
+         // Initialize output vectors with defaults
+-        mujoco_qpos_values_.resize(64 * 36);
+-        num_pred_frames_values_.resize(1);
++        mujoco_qpos_values_.resize(batch_size_ * 64 * 36);
++        num_pred_frames_values_.resize(batch_size_);
+ 
+         bool success = InitializeEngine();
+         if (!success) {
+@@ -154,16 +155,52 @@ public:
+      */
+     cudaStream_t GetCudaStream() const { return cuda_stream_; }
+ 
++    bool RunBatch(const std::vector<LocalMotionPlannerTensorRT*>& planners) {
++        if (planners.size() != batch_size_) return false;
++        for (size_t row = 0; row < batch_size_; ++row) {
++            const auto* source = planners[row];
++            if (!source) return false;
++            std::copy_n(source->context_qpos_values_.data(), 4 * 36,
++                        context_qpos_values_.data() + row * 4 * 36);
++            std::copy_n(source->movement_direction_values_.data(), 3,
++                        movement_direction_values_.data() + row * 3);
++            std::copy_n(source->facing_direction_values_.data(), 3,
++                        facing_direction_values_.data() + row * 3);
++            mode_values_[row] = source->mode_values_[0];
++            target_vel_values_[row] = source->target_vel_values_[0];
++            random_seed_values_[row] = source->random_seed_values_[0];
++            if (config_.version == 1 || config_.version == 2) {
++                target_height_values_[row] = source->target_height_values_[0];
++                has_specific_target_[row] = source->has_specific_target_[0];
++                std::copy_n(source->specific_target_positions_.data(), 12,
++                            specific_target_positions_.data() + row * 12);
++                std::copy_n(source->specific_target_headings_.data(), 4,
++                            specific_target_headings_.data() + row * 4);
++                std::copy_n(source->allowed_pred_num_tokens_.data(), 11,
++                            allowed_pred_num_tokens_.data() + row * 11);
++            }
++        }
++        RunInference();
++        for (size_t row = 0; row < batch_size_; ++row) {
++            auto* destination = planners[row];
++            std::copy_n(mujoco_qpos_values_.data() + row * 64 * 36, 64 * 36,
++                        destination->mujoco_qpos_values_.data());
++            destination->num_pred_frames_values_[0] = num_pred_frames_values_[row];
++        }
++        return true;
++    }
++
+ private:
+     // ------------------------------------------------------------------
+     // TensorRT engine components
+     // ------------------------------------------------------------------
+-    std::unique_ptr<TRTInferenceEngine> inference_engine_;  ///< TensorRT inference engine.
++    std::shared_ptr<TRTInferenceEngine> inference_engine_;  ///< Shared TensorRT inference engine.
+     bool use_fp16_;           ///< FP16 precision flag.
+     int device_id_;           ///< CUDA device ID.
+     cudaStream_t cuda_stream_;  ///< CUDA stream for async operations.
+     cudaGraph_t graph_;         ///< Captured CUDA graph (inference pass).
+     cudaGraphExec_t graphExec_; ///< Instantiated CUDA graph for replay.
++    size_t batch_size_ = 1;
+ 
+     // ------------------------------------------------------------------
+     // Input data buffers (pinned memory for efficient CPU ↔ GPU transfers)
+@@ -224,12 +261,29 @@ private:
+         // Setup options for ONNX to TensorRT conversion
+         Options options;
+         options.deviceID = device_id_;
++        if (batch_size_ > 1) {
++            for (const auto& name : std::vector<std::string>{
++                     tensor_names_.context_qpos, tensor_names_.mode,
++                     tensor_names_.target_vel, tensor_names_.movement_direction,
++                     tensor_names_.facing_direction, tensor_names_.random_seed,
++                     tensor_names_.target_height, tensor_names_.has_specific_target,
++                     tensor_names_.specific_target_positions,
++                     tensor_names_.specific_target_headings,
++                     tensor_names_.allowed_pred_num_tokens}) {
++                options.dynamic_axes_names[name][0] = "batch";
++            }
++            options.dynamic_axes_sizes["batch"] = {
++                1, static_cast<int>(batch_size_), static_cast<int>(batch_size_)};
++        }
+         std::string prefix("planner_");
+         if(use_fp16_)
+         {
+             options.precision = Precision::FP16;
+             prefix += "fp16_";
+         }
++        if (batch_size_ > 1) {
++            prefix += "batch" + std::to_string(batch_size_) + "_";
++        }
+         
+         std::string cachedTRTFile;
+         std::string onnxModelPath = config_.model_path;
+@@ -240,18 +294,17 @@ private:
+             return false;
+         }
+         
+-        // Initialize the TensorRT inference engine
+-        if (!inference_engine_->Initialize(cachedTRTFile, options.deviceID, options.dynamic_axes_names)) {
++        // Stateful SPARK sessions execute serially and can share the large
++        // deserialized model/context while retaining separate planner state.
++        TRTInferenceEngine::AxisSizes axis_sizes;
++        if (batch_size_ > 1) axis_sizes["batch"] = static_cast<int>(batch_size_);
++        inference_engine_ = AcquireSharedTRTInferenceEngine(
++            cachedTRTFile, options.deviceID, options.dynamic_axes_names, axis_sizes);
++        if (!inference_engine_) {
+             std::cout << "✗ Failed to initialize TensorRT model: " << cachedTRTFile << std::endl;
+             return false;
+         }
+         
+-        // Initialize engine inputs
+-        if (!inference_engine_->InitInputs({})) {
+-            std::cout << "✗ Failed to initialize TensorRT model inputs: " << cachedTRTFile << std::endl;
+-            return false;
+-        }
+-        
+         std::cout << "✓ Successfully converted ONNX to TRT: " << cachedTRTFile << std::endl;
+ 
+         // Capture a CUDA graph
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp
+index 87bcc17..ea75d7e 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/state_logger.hpp
+@@ -187,6 +187,9 @@ class StateLogger {
+   size_t capacity() const;
+   size_t size() const;
+ 
++  // Clear recurrent observation history while preserving logger configuration.
++  void Clear();
++
+   // Returns copies of the latest n entries (up to available size)
+   // If newest_first is true (default), returns [newest, ..., oldest]; otherwise [oldest, ..., newest]
+   std::vector<Entry> GetLatest(size_t n, bool newest_first = true) const;
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+index a35f0b3..8195b1c 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+@@ -65,6 +65,7 @@
+ #include <chrono>
+ #include <algorithm>
+ #include <numeric>
++#include <sstream>
+ 
+ // DDS
+ #include <unitree/robot/channel/channel_publisher.hpp>
+@@ -138,6 +139,9 @@
+ 
+ #include "audio_thread/audio_thread.hpp"
+ 
++#include <nlohmann/json.hpp>
++#include <zmq.hpp>
++
+ // DDS
+ using namespace unitree::common;
+ using namespace unitree::robot;
+@@ -162,6 +166,26 @@ using namespace unitree_hg::msg::dds_;
+  * Four real-time threads handle Input (100 Hz), Control (50 Hz),
+  * Planner (10 Hz), and Command Writing (500 Hz).
+  */
++static MotionDataReader LoadMotionDataCached(const std::string& path) {
++  static std::mutex cache_mutex;
++  static std::map<std::string, MotionDataReader> cache;
++  std::lock_guard<std::mutex> lock(cache_mutex);
++  auto found = cache.find(path);
++  if (found == cache.end()) {
++    MotionDataReader loaded;
++    if (!loaded.ReadFromCSV(path) || loaded.motions.empty()) {
++      throw std::runtime_error("failed to load motion data from " + path);
++    }
++    found = cache.emplace(path, std::move(loaded)).first;
++  }
++  MotionDataReader result;
++  result.motions.reserve(found->second.motions.size());
++  for (const auto& motion : found->second.motions) {
++    result.motions.push_back(std::make_shared<MotionSequence>(*motion));
++  }
++  return result;
++}
++
+ class G1Deploy {
+   private:
+     /// State machine for the control loop lifecycle.
+@@ -248,6 +272,7 @@ class G1Deploy {
+     // =========================================================================
+     // Flag to disable CRC checking for MuJoCo simulation
+     bool disable_crc_check_ = false;
++    bool policy_server_mode_ = false;
+     
+     bool reinitialize_heading_ = true;
+     bool report_temperature_ = false;
+@@ -345,6 +370,7 @@ class G1Deploy {
+     // Encoder engine
+     std::string model_path;
+     std::unique_ptr<EncoderEngine> encoder_engine_;
++    bool spark_batch_token_ready_ = false;
+     EncoderConfig encoder_config_;  // Encoder configuration from observation config
+     bool is_using_encoder_ = false;
+     int initial_encoder_mode_ = -2;  // -2: no token state. -1: need token state but no encoder. 0,1,2,...: encoder mode.
+@@ -1653,6 +1679,12 @@ class G1Deploy {
+         return false;
+       }
+ 
++      if (spark_batch_token_ready_) {
++        std::copy(token_state_data_.begin(), token_state_data_.end(),
++                  target_buffer.begin() + offset);
++        return true;
++      }
++
+       // Gather encoder observations (populate encoder's internal input buffer)
+       if (!GatherEncoderObservations()) {
+         std::cerr << "✗ Error: Failed to gather encoder observations!" << std::endl;
+@@ -2159,7 +2191,8 @@ class G1Deploy {
+       std::string zmq_out_topic = "g1_debug",
+       bool enable_motion_recording = false,
+       std::array<double, 3> initial_compliance = {0.05, 0.05, 0.0},
+-      double initial_max_close_ratio = 1.0)
++      double initial_max_close_ratio = 1.0,
++      bool policy_server_mode = false)
+       : time_(0.0),
+         publish_dt_(0.002),
+         control_dt_(0.02),
+@@ -2170,6 +2203,7 @@ class G1Deploy {
+         mode_pr_(Mode::PR),
+         mode_machine_(0),
+         disable_crc_check_(disable_crc_check),
++        policy_server_mode_(policy_server_mode),
+         program_state_(ProgramState::INIT),
+         last_action {0.0},
+         last_left_hand_action {0.0},
+@@ -2181,13 +2215,19 @@ class G1Deploy {
+         model_path(model_file_path),
+         planner_path(planner_file_path) {
+       
+-      // Initialize ChannelFactory
+-      ChannelFactory::Instance()->Init(0, networkInterface);
++      if (!policy_server_mode_) {
++        // Initialize ChannelFactory
++        ChannelFactory::Instance()->Init(0, networkInterface);
+ 
+-      // Initialize Dex3 hands (ChannelFactory already initialized above)
+-      dex3_hands_.initialize("");
++        // Initialize Dex3 hands (ChannelFactory already initialized above)
++        dex3_hands_.initialize("");
++      } else {
++        std::cout << "[SparkPolicyServer] DDS and Dex3 publishers are disabled in server mode" << std::endl;
++      }
+ 
+-      audio_thread_ = std::make_unique<AudioThread>();
++      if (!policy_server_mode_) {
++        audio_thread_ = std::make_unique<AudioThread>();
++      }
+ 
+       if(!target_motion_file_path.empty())
+       {
+@@ -2244,26 +2284,29 @@ class G1Deploy {
+       planner_motion_->ReserveCapacity(1500, 29, 1, 1, 0, 0);
+       planner_motion_->timesteps = 0;
+       planner_motion_->name = "planner_motion";
+-      // try to shutdown motion control-related service
+-      msc_ = std::make_unique<unitree::robot::b2::MotionSwitcherClient>();
+-      msc_->SetTimeout(5.0f);
+-      msc_->Init();
+-      std::string form, name;
+-      while (msc_->CheckMode(form, name), !name.empty()) {
+-        if (msc_->ReleaseMode()) std::cout << "Failed to switch to Release Mode\n";
+-        sleep(5);
+-      }
+-
+-      // create publisher
+-      lowcmd_publisher_.reset(new ChannelPublisher<LowCmd_>(HG_CMD_TOPIC));
+-      lowcmd_publisher_->InitChannel();
+-      // create subscriber
+-      lowstate_subscriber_.reset(new ChannelSubscriber<LowState_>(HG_STATE_TOPIC));
+-      lowstate_subscriber_->InitChannel(std::bind(&G1Deploy::LowStateHandler, this, std::placeholders::_1), 1);
+-      imutorso_subscriber_.reset(new ChannelSubscriber<IMUState_>(HG_IMU_TORSO));
+-      imutorso_subscriber_->InitChannel(std::bind(&G1Deploy::imuTorsoHandler, this, std::placeholders::_1), 1);
++      if (!policy_server_mode_) {
++        // try to shutdown motion control-related service
++        msc_ = std::make_unique<unitree::robot::b2::MotionSwitcherClient>();
++        msc_->SetTimeout(5.0f);
++        msc_->Init();
++        std::string form, name;
++        while (msc_->CheckMode(form, name), !name.empty()) {
++          if (msc_->ReleaseMode()) std::cout << "Failed to switch to Release Mode\n";
++          sleep(5);
++        }
++
++        // create publisher
++        lowcmd_publisher_.reset(new ChannelPublisher<LowCmd_>(HG_CMD_TOPIC));
++        lowcmd_publisher_->InitChannel();
++        // create subscriber
++        lowstate_subscriber_.reset(new ChannelSubscriber<LowState_>(HG_STATE_TOPIC));
++        lowstate_subscriber_->InitChannel(std::bind(&G1Deploy::LowStateHandler, this, std::placeholders::_1), 1);
++        imutorso_subscriber_.reset(new ChannelSubscriber<IMUState_>(HG_IMU_TORSO));
++        imutorso_subscriber_->InitChannel(std::bind(&G1Deploy::imuTorsoHandler, this, std::placeholders::_1), 1);
++      }
+       // Load motion data
+-      if (motion_reader_.ReadFromCSV(motion_data_path)) {
++      motion_reader_ = LoadMotionDataCached(motion_data_path);
++      if (!motion_reader_.motions.empty()) {
+         if (!motion_reader_.motions.empty()) {
+           std::cout << "✓ Motion data loaded successfully!" << std::endl;
+           // motion_reader_.PrintSummary();
+@@ -2447,6 +2490,14 @@ class G1Deploy {
+         throw;  // Re-throw to stop program initialization
+       }
+ 
++      if (policy_server_mode_) {
++        program_state_ = ProgramState::CONTROL;
++        operator_state.start = true;
++        operator_state.play = true;
++        std::cout << "[SparkPolicyServer] Model, planner, observations, and logger initialized" << std::endl;
++        return;
++      }
++
+       // Initialize input interface based on type
+       if (input_type == "gamepad") {
+         input_interface_ = std::make_unique<unitree::common::Gamepad>();
+@@ -2585,7 +2636,8 @@ class G1Deploy {
+       
+       if (planner_) {
+         planner_thread_ptr_ =
+-          CreateRecurrentThreadEx("planner", UT_CPU_ID_NONE, planner_dt_ * 1e6, &G1Deploy::Planner, this);
++          CreateRecurrentThreadEx("planner", UT_CPU_ID_NONE, planner_dt_ * 1e6,
++                                  &G1Deploy::Planner, this, false);
+       }
+           
+       SetThreadPriority();
+@@ -2698,11 +2750,630 @@ class G1Deploy {
+           planner_thread_ptr_.reset();
+         }
+       }
+-      CreateDampingCommand();
+-      LowCommandWriter();
++      if (!policy_server_mode_) {
++        CreateDampingCommand();
++        LowCommandWriter();
++      }
+       std::cout << "Stop" << std::endl;
+     }
+ 
++    std::vector<double> JsonVector(
++      const nlohmann::json& object,
++      const std::string& key,
++      size_t expected_size,
++      const std::vector<double>& fallback) const {
++      if (!object.contains(key) || !object[key].is_array()) {
++        return fallback;
++      }
++      std::vector<double> values = object[key].get<std::vector<double>>();
++      if (values.size() != expected_size) {
++        std::ostringstream oss;
++        oss << key << " must have " << expected_size << " values, got " << values.size();
++        throw std::runtime_error(oss.str());
++      }
++      return values;
++    }
++
++    std::array<double, 3> JsonArray3(
++      const nlohmann::json& object,
++      const std::string& key,
++      const std::array<double, 3>& fallback) const {
++      if (!object.contains(key) || !object[key].is_array()) {
++        return fallback;
++      }
++      std::vector<double> values = object[key].get<std::vector<double>>();
++      if (values.size() != 3) {
++        std::ostringstream oss;
++        oss << key << " must have 3 values, got " << values.size();
++        throw std::runtime_error(oss.str());
++      }
++      return {values[0], values[1], values[2]};
++    }
++
++    std::array<float, 3> ToFloatArray3(const std::array<double, 3>& values) const {
++      return {
++        static_cast<float>(values[0]),
++        static_cast<float>(values[1]),
++        static_cast<float>(values[2])
++      };
++    }
++
++    std::array<float, 4> ToFloatArray4(const std::vector<double>& values) const {
++      if (values.size() != 4) {
++        std::ostringstream oss;
++        oss << "base_quat must have 4 values, got " << values.size();
++        throw std::runtime_error(oss.str());
++      }
++      return {
++        static_cast<float>(values[0]),
++        static_cast<float>(values[1]),
++        static_cast<float>(values[2]),
++        static_cast<float>(values[3])
++      };
++    }
++
++    void ApplySparkPolicyRequest(const nlohmann::json& request) {
++      if (request.value("reset", false)) {
++        if (state_logger_) {
++          state_logger_->Clear();
++        }
++        // A Spark episode reset also resets the simulated robot pose.  Discard
++        // every trajectory derived from the previous pose; otherwise the
++        // planner keeps blending the new request into the preceding episode's
++        // world-frame motion and can walk indefinitely in the old direction.
++        // Keep the lock ordering consistent with CurrentFrameAdvancement().
++        {
++          std::lock_guard<std::mutex> motion_lock(current_motion_mutex_);
++          if (planner_) {
++            std::lock_guard<std::mutex> planner_lock(planner_->planner_motion_mutex_);
++            planner_->planner_state_.initialized = false;
++            planner_->motion_available_ = false;
++            planner_->gen_frame_ = 0;
++            planner_->planner_motion_50hz_.timesteps = 0;
++          }
++          if (planner_motion_) {
++            planner_motion_->timesteps = 0;
++          }
++          current_motion_ = motion_reader_.GetMotionShared(
++            motion_reader_.current_motion_index_);
++          current_frame_ = 0;
++          saved_frame_for_observation_window_ = 0;
++        }
++        last_movement_state_ = MovementState(
++          static_cast<int>(LocomotionMode::IDLE),
++          {0.0f, 0.0f, 0.0f},
++          {1.0f, 0.0f, 0.0f},
++          -1.0f,
++          -1.0f);
++        replan_interval_counter_ = 0.0f;
++        // The policy observes previous actions and encoded tokens.  Leaving
++        // either buffer populated makes the first observation window of the
++        // new episode depend on the preceding episode, even though the robot
++        // and planner were reset to their initial state.
++        motor_command_buffer_.Clear();
++        movement_state_buffer_.SetData(MovementState());
++        token_state_data_.assign(token_state_data_.size(), 0.0);
++        reinitialize_heading_ = true;
++        logging_counter_ = 0;
++        first_token_received_ = false;
++        idle_readapt_stored_ = false;
++        idle_readapt_state_ = IdleReadaptState::IDLE;
++      }
++      std::vector<double> default_actuated(default_angles.begin(), default_angles.end());
++      std::vector<double> actuated_qpos;
++      if (request.contains("actuated_qpos")) {
++        actuated_qpos = JsonVector(request, "actuated_qpos", G1_NUM_MOTOR, default_actuated);
++      } else {
++        std::vector<double> body_qpos = JsonVector(request, "body_qpos", G1_NUM_MOTOR + 7, {});
++        if (body_qpos.size() != G1_NUM_MOTOR + 7) {
++          throw std::runtime_error("request must include actuated_qpos or full body_qpos");
++        }
++        actuated_qpos.assign(body_qpos.begin() + 7, body_qpos.begin() + 7 + G1_NUM_MOTOR);
++      }
++      std::vector<double> actuated_qvel = JsonVector(
++        request,
++        "actuated_qvel",
++        G1_NUM_MOTOR,
++        std::vector<double>(G1_NUM_MOTOR, 0.0)
++      );
++
++      std::vector<double> base_quat;
++      if (request.contains("base_quat")) {
++        base_quat = JsonVector(request, "base_quat", 4, {1.0, 0.0, 0.0, 0.0});
++      } else {
++        std::vector<double> body_qpos = JsonVector(request, "body_qpos", G1_NUM_MOTOR + 7, {});
++        if (body_qpos.size() != G1_NUM_MOTOR + 7) {
++          throw std::runtime_error("request must include base_quat or full body_qpos");
++        }
++        base_quat.assign(body_qpos.begin() + 3, body_qpos.begin() + 7);
++      }
++      const auto base_ang_vel = JsonArray3(request, "base_ang_vel", {0.0, 0.0, 0.0});
++
++      LowState_ low_state;
++      low_state.mode_pr(static_cast<uint8_t>(mode_pr_));
++      low_state.mode_machine(1);
++      low_state.imu_state().quaternion(ToFloatArray4(base_quat));
++      low_state.imu_state().gyroscope(ToFloatArray3(base_ang_vel));
++      low_state.imu_state().accelerometer({0.0f, 0.0f, -9.81f});
++      for (int i = 0; i < G1_NUM_MOTOR; ++i) {
++        auto& motor = low_state.motor_state()[i];
++        motor.mode(1);
++        motor.q(static_cast<float>(actuated_qpos[i]));
++        motor.dq(static_cast<float>(actuated_qvel[i]));
++        motor.ddq(0.0f);
++        motor.tau_est(0.0f);
++        motor.temperature({30, 30});
++        motor.motorstate(0);
++      }
++      low_state_buffer_.SetData(low_state);
++
++      IMUState_ imu_torso;
++      imu_torso.quaternion(ToFloatArray4(base_quat));
++      imu_torso.gyroscope(ToFloatArray3(base_ang_vel));
++      imu_torso.accelerometer({0.0f, 0.0f, -9.81f});
++      imu_torso_buffer_.SetData(imu_torso);
++      mode_machine_ = 1;
++
++      if (request.contains("upper_body_position")) {
++        const auto upper = JsonVector(request, "upper_body_position", 17, std::vector<double>(17, 0.0));
++        for (int i = 0; i < 17; ++i) {
++          upper_body_joint_positions_buffer_[i] = upper[i];
++        }
++        has_upper_body_data_ = true;
++      } else {
++        has_upper_body_data_ = false;
++      }
++
++      const auto upper_vel = JsonVector(
++        request,
++        "upper_body_velocity",
++        17,
++        std::vector<double>(17, 0.0)
++      );
++      for (int i = 0; i < 17; ++i) {
++        upper_body_joint_velocities_buffer_[i] = upper_vel[i];
++      }
++
++      const nlohmann::json planner_request =
++        (request.contains("planner") && request["planner"].is_object())
++          ? request["planner"]
++          : nlohmann::json::object();
++      const int mode = planner_request.value("mode", static_cast<int>(LocomotionMode::IDLE));
++      const auto movement = JsonArray3(planner_request, "movement", {0.0, 0.0, 0.0});
++      const auto facing = JsonArray3(planner_request, "facing", {1.0, 0.0, 0.0});
++      const double speed = planner_request.value("speed", -1.0);
++      const double height = planner_request.value("height", -1.0);
++      movement_state_buffer_.SetData(MovementState(mode, movement, facing, speed, height));
++
++      if (planner_) {
++        planner_->planner_state_.enabled = true;
++      }
++      operator_state.start = request.value("start", true);
++      operator_state.play = true;
++    }
++
++    bool PrepareSparkPlannerInference() { return Planner(true); }
++
++    LocalMotionPlannerTensorRT* SparkTensorRTPlanner() {
++      return dynamic_cast<LocalMotionPlannerTensorRT*>(planner_.get());
++    }
++
++    bool CompleteSparkPlannerInference() {
++      return planner_ && planner_->CompletePreparedInference();
++    }
++
++    bool PrepareSparkEncoderInput(
++        std::string& error_message, float* destination,
++        size_t expected_dimension, bool run_planner = true) {
++      try {
++        logging_counter_++;
++        if (run_planner && planner_ && planner_->planner_state_.enabled) Planner();
++        if (!GatherRobotStateToLogger()) {
++          error_message = "failed to gather robot state";
++          return false;
++        }
++        if (!encoder_engine_ ||
++            encoder_engine_->GetInputDimension() != expected_dimension) {
++          error_message = "encoder input dimension mismatch";
++          return false;
++        }
++        std::lock_guard<std::mutex> lock(current_motion_mutex_);
++        if (!current_motion_ || current_motion_->timesteps == 0) {
++          error_message = "current motion is empty";
++          return false;
++        }
++        saved_frame_for_observation_window_ = 0;
++        UpdateHeadingState();
++        if (!GatherEncoderObservations()) {
++          error_message = "failed to gather encoder observations";
++          return false;
++        }
++        const auto& input = encoder_engine_->GetInputBuffer();
++        std::copy_n(input.data(), expected_dimension, destination);
++        return true;
++      } catch (const std::exception& e) {
++        error_message = e.what();
++        return false;
++      }
++    }
++
++    bool ApplySparkEncoderToken(const float* token, size_t dimension) {
++      if (token == nullptr || dimension != token_state_data_.size()) return false;
++      std::transform(token, token + dimension, token_state_data_.begin(),
++                     [](float value) { return static_cast<double>(value); });
++      spark_batch_token_ready_ = true;
++      return true;
++    }
++
++    int SparkEncoderMode() {
++      std::lock_guard<std::mutex> lock(current_motion_mutex_);
++      return current_motion_ ? current_motion_->GetEncodeMode() : -1;
++    }
++
++    bool PrepareSparkPolicyTick(
++        std::string& error_message, bool state_already_prepared = false) {
++      try {
++        if (!state_already_prepared) {
++          logging_counter_++;
++          if (planner_ && planner_->planner_state_.enabled) Planner();
++          if (!GatherRobotStateToLogger()) {
++            error_message = "failed to gather robot state";
++            return false;
++          }
++        }
++
++        int current_frame_copy = 0;
++        int current_encoder_mode_copy = initial_encoder_mode_;
++        bool current_play_copy = operator_state.play;
++        std::shared_ptr<const MotionSequence> current_motion_copy = nullptr;
++        {
++          std::lock_guard<std::mutex> lock(current_motion_mutex_);
++          if (!current_motion_ || current_motion_->timesteps == 0) {
++            error_message = "current motion is empty";
++            return false;
++          }
++          current_frame_copy = current_frame_;
++          current_motion_copy = current_motion_;
++          current_encoder_mode_copy = current_motion_copy->GetEncodeMode();
++          saved_frame_for_observation_window_ = 0;
++          UpdateHeadingState();
++          if (!GatherObservations()) {
++            error_message = "failed to gather observations";
++            return false;
++          }
++          spark_batch_token_ready_ = false;
++        }
++
++        if (state_logger_ && current_motion_copy) {
++          const std::string motion_name = current_motion_copy->name;
++          state_logger_->LogPostState(
++            std::span(token_state_data_),
++            current_encoder_mode_copy,
++            motion_name,
++            current_play_copy
++          );
++        }
++
++        (void)current_frame_copy;
++        return true;
++      } catch (const std::exception& e) {
++        error_message = e.what();
++        return false;
++      }
++    }
++
++    void CopyPolicyObservation(float* destination) const {
++      if (destination == nullptr) return;
++      std::transform(obs_buffer_.begin(), obs_buffer_.end(), destination,
++                     [](double value) { return static_cast<float>(value); });
++    }
++
++    size_t PolicyObservationDimension() const { return obs_buffer_.size(); }
++
++    bool FinishSparkPolicyTick(
++        const float* action, std::string& error_message) {
++      if (!ApplyPolicyAction(action)) {
++        error_message = "failed to apply policy action";
++        return false;
++      }
++      if (!CurrentFrameAdvancement()) {
++        error_message = "failed to advance current frame";
++        return false;
++      }
++      return true;
++    }
++
++    bool RunSparkPolicyTick(std::string& error_message) {
++      if (!PrepareSparkPolicyTick(error_message)) return false;
++      if (!CreatePolicyCommand()) {
++        error_message = "policy inference failed";
++        return false;
++      }
++      if (!CurrentFrameAdvancement()) {
++        error_message = "failed to advance current frame";
++        return false;
++      }
++      return true;
++    }
++
++    nlohmann::json BuildSparkPolicyResponse(const nlohmann::json& request, bool ok, const std::string& error_message) const {
++      nlohmann::json response;
++      response["ok"] = ok;
++      response["seq"] = request.value("seq", -1);
++      if (!ok) {
++        response["error"] = error_message;
++        return response;
++      }
++
++      const std::shared_ptr<const MotorCommand> mc = motor_command_buffer_.GetDataWithTime().data;
++      if (!mc) {
++        response["ok"] = false;
++        response["error"] = "motor command is unavailable";
++        return response;
++      }
++
++      std::vector<double> target_actuated_pos;
++      std::vector<double> motor_kps;
++      std::vector<double> motor_kds;
++      target_actuated_pos.reserve(G1_NUM_MOTOR);
++      motor_kps.reserve(G1_NUM_MOTOR);
++      motor_kds.reserve(G1_NUM_MOTOR);
++      for (int i = 0; i < G1_NUM_MOTOR; ++i) {
++        target_actuated_pos.push_back(static_cast<double>(mc->q_target.at(i)));
++        motor_kps.push_back(static_cast<double>(mc->kp.at(i)));
++        motor_kds.push_back(static_cast<double>(mc->kd.at(i)));
++      }
++
++      response["target_actuated_pos"] = target_actuated_pos;
++      response["motor_kps"] = motor_kps;
++      response["motor_kds"] = motor_kds;
++      response["debug"] = {
++        {"backend", "g1_deploy_onnx_ref_spark_policy_server"},
++        {"planner_enabled", planner_ ? planner_->planner_state_.enabled : false},
++        {"planner_initialized", planner_ ? planner_->planner_state_.initialized : false},
++        {"current_frame", current_frame_}
++      };
++      return response;
++    }
++
++    void RunSparkPolicyServer(const std::string& endpoint) {
++      if (!policy_server_mode_) {
++        throw std::runtime_error("RunSparkPolicyServer called when policy_server_mode_ is false");
++      }
++      zmq::context_t context(1);
++      zmq::socket_t socket(context, zmq::socket_type::rep);
++      socket.set(zmq::sockopt::linger, 0);
++      socket.bind(endpoint);
++      std::cout << "[SparkPolicyServer] Listening on " << endpoint << std::endl;
++
++      while (!operator_state.stop) {
++        zmq::message_t message;
++        auto recv_result = socket.recv(message, zmq::recv_flags::none);
++        if (!recv_result.has_value()) {
++          continue;
++        }
++
++        nlohmann::json request;
++        nlohmann::json response;
++        std::string error_message;
++        bool ok = false;
++        try {
++          request = nlohmann::json::parse(
++            static_cast<const char*>(message.data()),
++            static_cast<const char*>(message.data()) + message.size()
++          );
++          ApplySparkPolicyRequest(request);
++          ok = RunSparkPolicyTick(error_message);
++          response = BuildSparkPolicyResponse(request, ok, error_message);
++        } catch (const std::exception& e) {
++          response = {
++            {"ok", false},
++            {"seq", request.value("seq", -1)},
++            {"error", e.what()}
++          };
++        }
++
++        const std::string payload = response.dump();
++        socket.send(zmq::buffer(payload), zmq::send_flags::none);
++      }
++    }
++
++    void RunSparkPolicyBatchServer(
++        const std::string& endpoint,
++        const std::vector<G1Deploy*>& sessions,
++        const std::string& batch_policy_file,
++        const std::string& batch_encoder_file,
++        const std::string& batch_planner_file,
++        bool policy_fp16,
++        bool planner_fp16) {
++      if (sessions.empty()) {
++        throw std::runtime_error("SPARK batch server requires at least one session");
++      }
++      PolicyEngine batch_policy;
++      if (!batch_policy.Initialize(
++              batch_policy_file, policy_fp16, sessions.size())) {
++        throw std::runtime_error("failed to initialize batched policy engine");
++      }
++      const size_t observation_dimension =
++          sessions.front()->PolicyObservationDimension();
++      if (batch_policy.GetInputDimension() != observation_dimension) {
++        throw std::runtime_error("batched policy observation dimension mismatch");
++      }
++      EncoderEngine batch_encoder;
++      if (!batch_encoder.Initialize(
++              batch_encoder_file, false, sessions.size())) {
++        throw std::runtime_error("failed to initialize batched encoder engine");
++      }
++      const size_t encoder_dimension = batch_encoder.GetInputDimension();
++      const size_t token_dimension = batch_encoder.GetTokenDimension();
++      auto* template_planner = sessions.front()->SparkTensorRTPlanner();
++      if (!template_planner) {
++        throw std::runtime_error("SPARK batch server requires TensorRT planners");
++      }
++      PlannerConfig batch_planner_config = template_planner->GetConfig();
++      batch_planner_config.model_path = batch_planner_file;
++      LocalMotionPlannerTensorRT batch_planner(
++          planner_fp16, 0, batch_planner_config, sessions.size());
++
++      zmq::context_t context(1);
++      zmq::socket_t socket(context, zmq::socket_type::rep);
++      socket.set(zmq::sockopt::linger, 0);
++      socket.bind(endpoint);
++      std::cout << "[SparkPolicyBatchServer] Listening on " << endpoint
++                << " with " << sessions.size() << " independent sessions" << std::endl;
++
++      while (!sessions.front()->operator_state.stop) {
++        zmq::message_t message;
++        if (!socket.recv(message, zmq::recv_flags::none).has_value()) continue;
++        nlohmann::json envelope;
++        nlohmann::json response;
++        try {
++          envelope = nlohmann::json::parse(
++              static_cast<const char*>(message.data()),
++              static_cast<const char*>(message.data()) + message.size());
++          const auto& requests = envelope.is_array() ? envelope : envelope.at("requests");
++          if (!requests.is_array() || requests.size() != sessions.size()) {
++            throw std::runtime_error(
++                "batch request count must equal configured SPARK session count");
++          }
++          std::vector<bool> prepared(sessions.size(), false);
++          std::vector<bool> planner_prepared(sessions.size(), false);
++          std::vector<std::string> errors(sessions.size());
++          std::vector<int> encoder_modes(sessions.size(), -1);
++          auto& batch_encoder_observations = batch_encoder.GetInputBuffer();
++          for (size_t index = 0; index < sessions.size(); ++index) {
++            try {
++              sessions[index]->ApplySparkPolicyRequest(requests[index]);
++              planner_prepared[index] =
++                  sessions[index]->PrepareSparkPlannerInference();
++            } catch (const std::exception& e) {
++              errors[index] = e.what();
++            }
++          }
++          if (std::any_of(planner_prepared.begin(), planner_prepared.end(),
++                          [](bool value) { return value; })) {
++            std::vector<LocalMotionPlannerTensorRT*> planners;
++            planners.reserve(sessions.size());
++            for (auto* session : sessions) {
++              planners.push_back(session->SparkTensorRTPlanner());
++            }
++            const auto planner_batch_start = std::chrono::steady_clock::now();
++            if (!batch_planner.RunBatch(planners)) {
++              throw std::runtime_error("batched planner inference failed");
++            }
++            const auto planner_batch_us = std::chrono::duration_cast<
++                std::chrono::microseconds>(
++                std::chrono::steady_clock::now() - planner_batch_start).count();
++            std::cout << "[SparkPlannerBatch] inferred " << sessions.size()
++                      << " rows in one TensorRT launch ("
++                      << planner_batch_us << " us, active="
++                      << std::count(planner_prepared.begin(),
++                                    planner_prepared.end(), true)
++                      << ")" << std::endl;
++            for (size_t index = 0; index < sessions.size(); ++index) {
++              if (planner_prepared[index] &&
++                  !sessions[index]->CompleteSparkPlannerInference()) {
++                errors[index] = "failed to finalize batched planner output";
++              }
++            }
++          }
++          for (size_t index = 0; index < sessions.size(); ++index) {
++            try {
++              if (!errors[index].empty()) continue;
++              prepared[index] = sessions[index]->PrepareSparkEncoderInput(
++                  errors[index],
++                  batch_encoder_observations.data() + index * encoder_dimension,
++                  encoder_dimension, false);
++              if (prepared[index]) {
++                encoder_modes[index] = sessions[index]->SparkEncoderMode();
++              }
++            } catch (const std::exception& e) {
++              errors[index] = e.what();
++            }
++          }
++          const std::vector<float> original_encoder_observations(
++              batch_encoder_observations.begin(),
++              batch_encoder_observations.end());
++          std::vector<float> encoded_tokens(
++              sessions.size() * token_dimension, 0.0f);
++          std::map<int, std::vector<size_t>> mode_groups;
++          for (size_t index = 0; index < sessions.size(); ++index) {
++            if (prepared[index]) mode_groups[encoder_modes[index]].push_back(index);
++          }
++          bool encoder_ok = true;
++          for (const auto& [mode, indexes] : mode_groups) {
++            (void)mode;
++            const size_t representative = indexes.front();
++            std::copy(original_encoder_observations.begin(),
++                      original_encoder_observations.end(),
++                      batch_encoder_observations.begin());
++            for (size_t index = 0; index < sessions.size(); ++index) {
++              if (encoder_modes[index] == encoder_modes[representative]) continue;
++              std::copy_n(
++                  original_encoder_observations.data() +
++                      representative * encoder_dimension,
++                  encoder_dimension,
++                  batch_encoder_observations.data() + index * encoder_dimension);
++            }
++            if (!batch_encoder.Encode()) {
++              encoder_ok = false;
++              break;
++            }
++            const auto& mode_tokens = batch_encoder.GetTokenBuffer();
++            for (const size_t index : indexes) {
++              std::copy_n(mode_tokens.data() + index * token_dimension,
++                          token_dimension,
++                          encoded_tokens.data() + index * token_dimension);
++            }
++          }
++          auto& batch_observations = batch_policy.GetInputBuffer();
++          for (size_t index = 0; index < sessions.size(); ++index) {
++            if (!prepared[index] || !encoder_ok) {
++              if (prepared[index] && !encoder_ok) {
++                errors[index] = "batched encoder inference failed";
++              }
++              prepared[index] = false;
++              continue;
++            }
++            try {
++              prepared[index] = sessions[index]->ApplySparkEncoderToken(
++                  encoded_tokens.data() + index * token_dimension,
++                  token_dimension);
++              if (prepared[index]) {
++                prepared[index] = sessions[index]->PrepareSparkPolicyTick(
++                    errors[index], true);
++              }
++              if (prepared[index]) {
++                sessions[index]->CopyPolicyObservation(
++                    batch_observations.data() + index * observation_dimension);
++              }
++            } catch (const std::exception& e) {
++              errors[index] = e.what();
++            }
++          }
++          const bool inference_ok = batch_policy.Infer();
++          nlohmann::json responses = nlohmann::json::array();
++          const auto& actions = batch_policy.GetActionBuffer();
++          for (size_t index = 0; index < sessions.size(); ++index) {
++            bool ok = prepared[index] && inference_ok;
++            if (ok) {
++              ok = sessions[index]->FinishSparkPolicyTick(
++                  actions.data() + index * G1_NUM_MOTOR, errors[index]);
++            } else if (prepared[index] && !inference_ok) {
++              errors[index] = "batched policy inference failed";
++            }
++            responses.push_back(sessions[index]->BuildSparkPolicyResponse(
++                requests[index], ok, errors[index]));
++          }
++          response = {{"ok", true}, {"responses", std::move(responses)}};
++        } catch (const std::exception& e) {
++          response = {{"ok", false}, {"error", e.what()}};
++        }
++        const std::string payload = response.dump();
++        socket.send(zmq::buffer(payload), zmq::send_flags::none);
++      }
++    }
++
+     /// Write a zero-torque, damping-only motor command (safe shutdown pose).
+     void CreateDampingCommand() {
+       MotorCommand motor_command_tmp;
+@@ -2986,15 +3657,17 @@ class G1Deploy {
+       auto low_state_data = low_state_buffer_.GetDataWithTime();
+       bool low_state_late = (std::chrono::steady_clock::now() - low_state_data.timestamp) > LOW_STATE_LATE_THRESHOLD;
+ 
+-      audio_thread_->SetCommand(
+-        AudioCommand{
+-          .streaming_data_absent = streaming_data_absent_debouncer_.state(),
+-          .motor_error = error_monitor_.hasErrors(),
+-          .low_state_late = low_state_late,
+-          .tts_message = std::move(pending_tts_),
+-          .high_temperature = high_temp_warning_,
+-          .high_temperature_message = high_temp_message_,
+-        });
++      if (audio_thread_) {
++        audio_thread_->SetCommand(
++          AudioCommand{
++            .streaming_data_absent = streaming_data_absent_debouncer_.state(),
++            .motor_error = error_monitor_.hasErrors(),
++            .low_state_late = low_state_late,
++            .tts_message = std::move(pending_tts_),
++            .high_temperature = high_temp_warning_,
++            .high_temperature_message = high_temp_message_,
++          });
++      }
+       pending_tts_.clear();
+ 
+       // if encoder mode is not -2, we need to get the token state data either from the encoder or the external token state
+@@ -3116,8 +3789,11 @@ class G1Deploy {
+       
+       // Access actions from control policy's internal buffer (already populated by Infer)
+       auto& action_buffer = policy_engine_->GetActionBuffer();
+-      float* floatarr = action_buffer.data();
+-      
++      return ApplyPolicyAction(action_buffer.data());
++    }
++
++    bool ApplyPolicyAction(const float* floatarr) {
++      if (floatarr == nullptr) return false;
+       MotorCommand motor_command_tmp;
+       for (int i = 0; i < G1_NUM_MOTOR; i++) {
+         const double action_value = static_cast<double>(floatarr[isaaclab_to_mujoco[i]]) * g1_action_scale[i];
+@@ -3211,7 +3887,11 @@ class G1Deploy {
+ 
+               // choosing 8 for the width of the blend region because this is about the size of the
+               // context we use for conditioning the planner model
+-              const int blend_num_frames = 8;
++              // Learned locomotion mode transitions need enough time for the
++              // lower-body reference and policy state to agree.  An 8-frame
++              // blend produced a visible backward lean when switching from an
++              // idle turn into walking; use 0.4 s at the 50 Hz playback rate.
++              const int blend_num_frames = 20;
+ 
+               // step through the frames and blend the animations:
+               for(int f = 0; f < new_anim_length; ++f)
+@@ -3558,8 +4238,9 @@ class G1Deploy {
+      * The generated animation is stored in planner_->planner_motion_50hz_
+      * and picked up by CurrentFrameAdvancement() in the control thread.
+      */
+-    void Planner() {
+-      if (operator_state.stop) { return; }
++    bool Planner(bool defer_inference = false) {
++      bool inference_prepared = false;
++      if (operator_state.stop) { return false; }
+       auto low_state_data = low_state_buffer_.GetDataWithTime();
+       const std::shared_ptr<const LowState_> ls = low_state_data.data;
+       
+@@ -3578,9 +4259,13 @@ class G1Deploy {
+                 joint_positions[i] = ls->motor_state()[i].q();
+               }
+               // Initialize planner with robot state
+-              if(!planner_->Initialize(base_quat, joint_positions)) {
++              const bool initialized = defer_inference
++                  ? planner_->PrepareInitialize(base_quat, joint_positions)
++                  : planner_->Initialize(base_quat, joint_positions);
++              if(!initialized) {
+                 throw std::runtime_error("Error when initializing planner");
+               }
++              inference_prepared = defer_inference;
+ 
+               std::cout << "Planner initialized successfully!" << std::endl;
+               
+@@ -3610,13 +4295,13 @@ class G1Deploy {
+                 planner_motion_recorder_.Finalize();
+               }
+               
+-              return;
++              return false;
+             }
+           } 
+           else {
+             if (planner_motion_->timesteps == 0) {
+               std::cout << "Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started." << std::endl;
+-              return;
++              return false;
+             }
+             bool need_replan = false;
+ 
+@@ -3698,7 +4383,7 @@ class G1Deploy {
+ 
+             if (!need_replan) {
+               // no need to replan, return
+-              return;
++              return false;
+             }
+ 
+             auto gather_input_start_time = std::chrono::steady_clock::now(); 
+@@ -3732,17 +4417,23 @@ class G1Deploy {
+               // Update planning with current movement parameters
+ 
+               // gotta make sure planner_motion actually has data...
+-              if(!planner_->UpdatePlanning(
++              const bool updated = defer_inference
++                ? planner_->PrepareUpdatePlanning(
++                    current_frame_, planner_motion_, current_mode,
++                    movement_speed, target_height, movement_direction,
++                    facing_direction)
++                : planner_->UpdatePlanning(
+                 current_frame_,
+                 planner_motion_,
+                 current_mode,
+                 movement_speed,
+                 target_height,
+                 movement_direction,
+-                facing_direction
+-              )) {
++                facing_direction);
++              if(!updated) {
+                 throw std::runtime_error("Error when updating planner");
+               }
++              inference_prepared = defer_inference;
+               
+             } catch (const std::exception& e) {
+               std::cout << "✗ Error during planning update: " << e.what() << std::endl;
+@@ -3762,7 +4453,7 @@ class G1Deploy {
+                 planner_motion_recorder_.Finalize();
+               }
+               
+-              return;
++              return false;
+             }
+           }
+         }
+@@ -3775,8 +4466,9 @@ class G1Deploy {
+           planner_motion_recorder_.Finalize();
+         }
+         
+-        return;
++        return false;
+       }
++      return inference_prepared;
+     }
+ 
+     /**
+@@ -4128,6 +4820,12 @@ int main(int argc, char const* argv[]) {
+     std::cout << "  --zmq-verbose: enable ZMQ subscriber verbose logs" << std::endl;
+     std::cout << "  --zmq-out-port <port>: ZMQ port for output (default: 5557)" << std::endl;
+     std::cout << "  --zmq-out-topic <topic>: ZMQ topic/prefix for output (default: g1_debug)" << std::endl;
++    std::cout << "  --spark-policy-server: run as a SPARK JSON/ZMQ policy server instead of DDS deployment" << std::endl;
++    std::cout << "  --spark-policy-endpoint <endpoint>: SPARK policy server bind endpoint (default: tcp://127.0.0.1:5560)" << std::endl;
++    std::cout << "  --spark-policy-batch-size <count>: independent sessions sharing one model set (default: 1)" << std::endl;
++    std::cout << "  --spark-batch-policy-file <path>: dynamic-batch decoder ONNX for batched inference" << std::endl;
++    std::cout << "  --spark-batch-encoder-file <path>: dynamic-batch encoder ONNX for batched inference" << std::endl;
++    std::cout << "  --spark-batch-planner-file <path>: dynamic-batch planner ONNX for batched inference" << std::endl;
+     std::cout << "  --logs-dir <path>: optional logs output base directory (default: logs/<timestamp>/)" << std::endl;
+     std::cout << "  --enable-csv-logs: enable writing CSV logs (default: OFF)" << std::endl;
+     std::cout << "  --enable-motion-recording: enable motion recording for ZMQ/planner (default: OFF)" << std::endl;
+@@ -4178,6 +4876,12 @@ int main(int argc, char const* argv[]) {
+   bool enableMotionRecording = false;  // default off; enable with --enable-motion-recording
+   int zmq_out_port = 5557;
+   std::string zmq_out_topic = "g1_debug";
++  bool spark_policy_server = false;
++  std::string spark_policy_endpoint = "tcp://127.0.0.1:5560";
++  int spark_policy_batch_size = 1;
++  std::string spark_batch_policy_file;
++  std::string spark_batch_encoder_file;
++  std::string spark_batch_planner_file;
+   std::array<double, 3> initial_compliance = {0.5, 0.5, 0.0}; // initial compliance is 0.5 for both hands (keyboard controllable)
+   double initial_max_close_ratio = 1.0; // default allows full closure, use --max-close-ratio to limit
+   for (int i = 4; i < argc; i++) {
+@@ -4284,6 +4988,54 @@ int main(int argc, char const* argv[]) {
+       if (i + 1 < argc) { zmq_out_port = std::stoi(argv[i + 1]); i++; }
+     } else if (std::string(argv[i]) == "--zmq-out-topic") {
+       if (i + 1 < argc) { zmq_out_topic = argv[i + 1]; i++; }
++    } else if (std::string(argv[i]) == "--spark-policy-server") {
++      spark_policy_server = true;
++      outputType = "none";
++      std::cout << "[INFO] SPARK policy server mode enabled" << std::endl;
++    } else if (std::string(argv[i]) == "--spark-policy-endpoint") {
++      if (i + 1 < argc) {
++        spark_policy_endpoint = argv[i + 1];
++        std::cout << "[INFO] SPARK policy endpoint: " << spark_policy_endpoint << std::endl;
++        i++;
++      } else {
++        std::cerr << "Error: --spark-policy-endpoint requires an endpoint argument" << std::endl;
++        exit(1);
++      }
++    } else if (std::string(argv[i]) == "--spark-policy-batch-size") {
++      if (i + 1 < argc) {
++        spark_policy_batch_size = std::stoi(argv[++i]);
++        if (spark_policy_batch_size < 1) {
++          std::cerr << "Error: --spark-policy-batch-size must be at least 1" << std::endl;
++          exit(1);
++        }
++        spark_policy_server = true;
++        outputType = "none";
++        std::cout << "[INFO] SPARK policy batch size: " << spark_policy_batch_size << std::endl;
++      } else {
++        std::cerr << "Error: --spark-policy-batch-size requires a count" << std::endl;
++        exit(1);
++      }
++    } else if (std::string(argv[i]) == "--spark-batch-policy-file") {
++      if (i + 1 < argc) {
++        spark_batch_policy_file = argv[++i];
++      } else {
++        std::cerr << "Error: --spark-batch-policy-file requires a path" << std::endl;
++        exit(1);
++      }
++    } else if (std::string(argv[i]) == "--spark-batch-encoder-file") {
++      if (i + 1 < argc) {
++        spark_batch_encoder_file = argv[++i];
++      } else {
++        std::cerr << "Error: --spark-batch-encoder-file requires a path" << std::endl;
++        exit(1);
++      }
++    } else if (std::string(argv[i]) == "--spark-batch-planner-file") {
++      if (i + 1 < argc) {
++        spark_batch_planner_file = argv[++i];
++      } else {
++        std::cerr << "Error: --spark-batch-planner-file requires a path" << std::endl;
++        exit(1);
++      }
+     } else if (std::string(argv[i]) == "--record-input-file") {
+       if (i + 1 < argc) {
+         recordInputFile = argv[i + 1];
+@@ -4412,6 +5164,37 @@ int main(int argc, char const* argv[]) {
+     }
+   }
+ 
++  if (spark_policy_server && spark_policy_batch_size > 1) {
++    std::vector<std::unique_ptr<G1Deploy>> owned_sessions;
++    std::vector<G1Deploy*> sessions;
++    owned_sessions.reserve(static_cast<size_t>(spark_policy_batch_size));
++    sessions.reserve(static_cast<size_t>(spark_policy_batch_size));
++    for (int index = 0; index < spark_policy_batch_size; ++index) {
++      auto session = std::make_unique<G1Deploy>(
++        networkInterface, modelFile, motionDataPath, disableCrcCheck,
++        obsConfigPath, encoderFile, plannerFile, "", "", "",
++        inputType, outputType, "", "", plannerFp16, policyFp16,
++        "", false, zmq_host, zmq_port, zmq_topic, zmq_conflate,
++        zmq_verbose, zmq_out_port, zmq_out_topic, false,
++        initial_compliance, initial_max_close_ratio, true);
++      sessions.push_back(session.get());
++      owned_sessions.push_back(std::move(session));
++      std::cout << "[SparkPolicyBatchServer] Initialized session "
++                << (index + 1) << "/" << spark_policy_batch_size << std::endl;
++    }
++    if (spark_batch_policy_file.empty() || spark_batch_encoder_file.empty() ||
++        spark_batch_planner_file.empty()) {
++      throw std::runtime_error(
++          "dynamic batch policy, encoder, and planner files are required for batch mode");
++    }
++    sessions.front()->RunSparkPolicyBatchServer(
++        spark_policy_endpoint, sessions, spark_batch_policy_file,
++        spark_batch_encoder_file, spark_batch_planner_file,
++        policyFp16, plannerFp16);
++    for (auto& session : owned_sessions) session->Stop();
++    return 0;
++  }
++
+   std::cout << "[DEBUG] Creating G1Deploy object..." << std::endl;
+   G1Deploy custom(
+     networkInterface,
+@@ -4441,9 +5224,17 @@ int main(int argc, char const* argv[]) {
+     zmq_out_topic,
+     enableMotionRecording,
+     initial_compliance,
+-    initial_max_close_ratio
++    initial_max_close_ratio,
++    spark_policy_server
+   );
+   std::cout << "[DEBUG] G1Deploy object created successfully!" << std::endl;
++
++  if (spark_policy_server) {
++    custom.RunSparkPolicyServer(spark_policy_endpoint);
++    custom.Stop();
++    std::cout << "[DEBUG] SPARK policy server exiting normally..." << std::endl;
++    return 0;
++  }
+   
+   // Main application loop - check both operator_state.stop and ROS2 status if using ROS2
+ #if HAS_ROS2
+@@ -4468,4 +5259,3 @@ int main(int argc, char const* argv[]) {
+   std::cout << "[DEBUG] Program exiting normally..." << std::endl;
+   return 0;
+ }
+-
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp
+index d9cf854..71c2a28 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/state_logger.cpp
+@@ -177,6 +177,18 @@ size_t StateLogger::size() const {
+   return size_;
+ }
+ 
++void StateLogger::Clear() {
++  std::lock_guard<std::mutex> lock(ring_mutex_);
++  // Keep the ring's indexed storage valid. pushToRing_ writes by index into
++  // this preallocated vector, so clear() alone would leave capacity_ nonzero
++  // while ring_.size() is zero and corrupt the heap on the next policy tick.
++  ring_.clear();
++  ring_.resize(capacity_);
++  start_ = 0;
++  size_ = 0;
++  next_index_.store(0);
++}
++
+ std::vector<Entry> StateLogger::GetLatest(size_t n, bool newest_first) const {
+   std::lock_guard<std::mutex> lock(ring_mutex_);
+   const size_t count = n < size_ ? n : size_;
+@@ -503,4 +515,3 @@ Entry StateLogger::makeZeroEntry_() const {
+   e.token_state.clear();
+   return e;
+ }
+-

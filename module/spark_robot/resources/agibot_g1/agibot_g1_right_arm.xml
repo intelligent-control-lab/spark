@@ -1,0 +1,3 @@
+<mujoco model="agibot_g1_right_arm">
+  <include file="agibot_g1_fixed_base.xml"/>
+</mujoco>

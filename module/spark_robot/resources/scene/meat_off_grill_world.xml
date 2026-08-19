@@ -14,11 +14,13 @@
     </asset>
 
     <worldbody>
-        <body pos="0.53 0.022 0.383" quat="0.703 -0.703 -0.079 0.079" name="grill">
-            <geom type="mesh" mesh="grill_mesh" material="grill_mat" pos="-0.28 0.03 -1.0"/>
+        <body pos="0.33025404  0.02189426  0.18313332" quat="0.703 -0.703 -0.079 0.079" name="grill">
+            <freejoint/>
+            <geom type="mesh" mesh="grill_mesh" pos="-0.28 0.03 -1.0"/>
         </body>
 
-        <body pos="0.554 0.16 0.455" quat="0.698 0.071 -0.707 0.089" name="steak">
+        <body pos="0.4 0.23 0.355" quat="0.698 0.071 -0.707 0.089" name="steak">
+            <freejoint/>
             <geom type="mesh" mesh="steak_mesh" material="steak_mat" pos="-0.28 0.1 -1.02"/>
         </body>
     </worldbody>

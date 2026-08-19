@@ -1,0 +1,249 @@
+import numpy as np
+import pinocchio as pin
+import os
+
+from spark_robot.base.base_robot_kinematics import RobotKinematics
+from spark_robot.base.base_robot_config import RobotConfig
+from spark_robot.kinematics import (
+    build_reduced_robot,
+    build_robot_from_mjcf,
+    configure_robot_ik,
+    solve_robot_ik,
+)
+from spark_robot import SPARK_ROBOT_RESOURCE_DIR
+from spark_utils import pos_quat_to_transformation, rpy2quat, transformation_to_pos_quat, quat2rpy
+from scipy.spatial.transform import Rotation as R
+
+
+class GalaxeaR1LiteFlatKinematics(RobotKinematics):
+    def __init__(self, robot_cfg: RobotConfig, **kwargs) -> None:
+        super().__init__(robot_cfg)
+        self.robot_cfg = robot_cfg
+        self.mixed_jointsToLockIDs = self.robot_cfg.joint_to_lock
+        self.kinematics_model_path = "galaxea_r1lite/r1lite_fixed_base.xml"
+        self._init_fixed_base_kinematics()
+        self._init_whole_body_kinematics()
+
+    def _init_fixed_base_kinematics(self):
+        self.fixed_base_robot = build_robot_from_mjcf(
+            os.path.join(SPARK_ROBOT_RESOURCE_DIR, self.kinematics_model_path)
+        )
+        self.add_extra_frames(self.fixed_base_robot.model)
+        self.reduced_fixed_base_robot = build_reduced_robot(
+            self.fixed_base_robot,
+            list_of_joints_to_lock=self.mixed_jointsToLockIDs,
+            reference_configuration=np.array([0.0] * self.fixed_base_robot.nq),
+        )
+        self.reduced_fixed_base_model = self.reduced_fixed_base_robot.model
+        self.reduced_fixed_base_data = self.reduced_fixed_base_robot.data
+
+        self.L_hand_id = self.reduced_fixed_base_model.getFrameId("L_ee")
+        self.R_hand_id = self.reduced_fixed_base_model.getFrameId("R_ee")
+        self.platform_id = self.reduced_fixed_base_model.getFrameId("platform")
+        self.init_data = np.zeros(self.reduced_fixed_base_model.nq)
+        configure_robot_ik(
+            self,
+            regularization_weight=0.02,
+            smoothness_weight=0.01,
+            max_evaluations=100,
+            position_tolerance=0.02,
+            orientation_tolerance=0.02,
+        )
+        return
+
+    def _init_whole_body_kinematics(self):
+        self.robot = build_robot_from_mjcf(
+            os.path.join(SPARK_ROBOT_RESOURCE_DIR, self.kinematics_model_path)
+        )
+
+        self.reduced_robot = build_reduced_robot(
+            self.robot,
+            list_of_joints_to_lock=self.mixed_jointsToLockIDs,
+            reference_configuration=np.array([0.0] * self.robot.nq),
+        )
+
+        self.model = self.reduced_robot.model
+        self.add_extra_frames(self.model)
+        self.data = pin.Data(self.model)
+
+        self.pin_frame_dict = {}
+        for frame in self.robot_cfg.Frames:
+            for j in range(self.model.nframes):
+                pin_frame = self.model.frames[j]
+                pin_frame_id = self.model.getFrameId(pin_frame.name, pin.FrameType.OP_FRAME)
+                if frame.name == pin_frame.name:
+                    self.pin_frame_dict[frame.name] = pin_frame_id
+
+    def add_extra_frames(self, model):
+        model.addFrame(
+            pin.Frame(
+                "platform",
+                model.getJointId("torso_joint3"),
+                pin.SE3(np.eye(3), np.array([0.0, 0, 0.0]).T),
+                pin.FrameType.OP_FRAME,
+            )
+        )
+        ee_rotation = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]])
+        ee_translation = np.array([0.15, 0, 0.0]).T
+
+        model.addFrame(
+            pin.Frame(
+                "L_ee",
+                model.getJointId("left_arm_joint6"),
+                pin.SE3(ee_rotation, ee_translation),
+                pin.FrameType.OP_FRAME,
+            )
+        )
+
+        model.addFrame(
+            pin.Frame(
+                "R_ee",
+                model.getJointId("right_arm_joint6"),
+                pin.SE3(ee_rotation, ee_translation),
+                pin.FrameType.OP_FRAME,
+            )
+        )
+
+        # --------------------------------------------------
+        # 1. Load collision spheres
+        # --------------------------------------------------
+        collision = self.load_collision_spheres()
+        link_to_joint = {
+            "base_link": "universe",
+            "steer_motor_link1": "universe",
+            "wheel_motor_link1": "universe",
+            "steer_motor_link2": "universe",
+            "wheel_motor_link2": "universe",
+            "steer_motor_link3": "universe",
+            "wheel_motor_link1": "universe",
+            "wheel_motor_link2": "universe",
+            "wheel_motor_link3": "universe",
+            "torso_link1": "torso_joint1",
+            "torso_link2": "torso_joint2",
+            "torso_link3": "torso_joint3",
+            "camera_head_left_link": "torso_joint3",
+            "left_arm_base_link": "torso_joint3",
+            "left_arm_link1": "left_arm_joint1",
+            "left_arm_link2": "left_arm_joint2",
+            "left_arm_link3": "left_arm_joint3",
+            "left_arm_link4": "left_arm_joint4",
+            "left_arm_link5": "left_arm_joint5",
+            "left_arm_link6": "left_arm_joint6",
+            "left_gripper_link": "left_arm_joint6",
+            "left_D405_link": "left_arm_joint6",
+            "right_arm_base_link": "torso_joint3",
+            "right_arm_link1": "right_arm_joint1",
+            "right_arm_link2": "right_arm_joint2",
+            "right_arm_link3": "right_arm_joint3",
+            "right_arm_link4": "right_arm_joint4",
+            "right_arm_link5": "right_arm_joint5",
+            "right_arm_link6": "right_arm_joint6",
+            "right_gripper_link": "right_arm_joint6",
+            "right_D405_link": "right_arm_joint6",
+        }
+
+        for link_name, spheres in collision.items():
+            if link_name not in link_to_joint:
+                raise RuntimeError(f"No joint mapping for collision link '{link_name}'")
+
+            joint_name = link_to_joint[link_name]
+            joint_id = model.getJointId(joint_name)
+
+            for i, s in enumerate(spheres):
+                frame_name = f"{link_name}_sphere_{i}"
+
+                # Avoid duplicates (important for reduced + full model)
+                if model.existFrame(frame_name):
+                    continue
+
+                origin = np.array(s["origin"], dtype=float)
+
+                frame = pin.Frame(
+                    frame_name,
+                    joint_id,
+                    pin.SE3(np.eye(3), origin),
+                    pin.FrameType.OP_FRAME,
+                )
+                model.addFrame(frame)
+
+    def update_base_frame(self, trans_world2base, dof):
+        try:
+            R = trans_world2base[:3, :3]
+            current_yaw = np.arctan2(R[1, 0], R[0, 0])
+
+            # Compute yaw difference
+            delta_yaw = dof[self.robot_cfg.DoFs.RotYaw] - current_yaw
+
+            # Create new yaw rotation matrix
+            Rz_new = np.array(
+                [
+                    [np.cos(delta_yaw), -np.sin(delta_yaw), 0],
+                    [np.sin(delta_yaw), np.cos(delta_yaw), 0],
+                    [0, 0, 1],
+                ]
+            )
+
+            # Compute new rotation matrix
+            R_new = Rz_new @ R
+
+            trans_world2base[:3, :3] = R_new
+            trans_world2base[:2, 3] = (
+                dof[self.robot_cfg.DoFs.LinearX],
+                dof[self.robot_cfg.DoFs.LinearY],
+            )
+        except:
+            return trans_world2base
+
+        return trans_world2base
+
+    def forward_kinematics(self, dof):
+        # in robot base frame
+        self.pre_computation(dof)
+        frames = self.get_forward_kinematics()
+        return frames
+
+    def inverse_kinematics(self, T, current_lr_arm_motor_q=None, current_lr_arm_motor_dq=None):
+        return solve_robot_ik(
+            self,
+            [(self.R_hand_id, T[0]), (self.L_hand_id, T[1]), (self.platform_id, np.eye(4))],
+            current_lr_arm_motor_q,
+            target_options=[{}, {}, {"position_mask": (True, True, False)}],
+        )
+
+    def pre_computation(self, dof_pos, dof_vel=None):
+        q = dof_pos
+        pin.forwardKinematics(self.model, self.data, q)
+        pin.updateFramePlacements(self.model, self.data)
+        pin.computeJointJacobians(self.model, self.data)
+        pin.updateGlobalPlacements(self.model, self.data)
+        if dof_vel is not None:
+            dq = dof_vel
+            pin.computeJointJacobiansTimeVariation(self.model, self.data, q, dq)
+        return
+
+    def get_jacobian(self, frame_name):
+        """Compute the Jacobian of a given frame in the robot base frame"""
+        return pin.getFrameJacobian(
+            self.model, self.data, self.model.getFrameId(frame_name), pin.LOCAL_WORLD_ALIGNED
+        )
+
+    def get_jacobian_dot(self, frame_name):
+        """Compute the Jacobian of a given frame in the robot base frame"""
+        return pin.getFrameJacobianTimeVariation(
+            self.model, self.data, self.model.getFrameId(frame_name), pin.LOCAL_WORLD_ALIGNED
+        )
+
+    def get_forward_kinematics(self):
+        frames = np.zeros((len(self.robot_cfg.Frames), 4, 4))
+        for frame in self.robot_cfg.Frames:
+            pin_frame = self.pin_frame_dict[frame.name]
+            frames[frame] = self.data.oMf[pin_frame].homogeneous
+        return frames
+
+
+if __name__ == "__main__":
+    from spark_robot.galaxea_r1lite.config.galaxea_r1lite_fixed_base_dynamic_1_config import (
+        GalaxeaR1LiteFixedBaseDynamic1Config,
+    )
+
+    arm_ik = GalaxeaR1LiteFlatKinematics(GalaxeaR1LiteFixedBaseDynamic1Config())

@@ -1,0 +1,4 @@
+<mujoco model="scene">
+  <include file="../fanuc_lrmate200id/lrmate200id_dual.xml"/>
+  <include file="../fanuc_lrmate200id/lrmate200id_share_scene.xml"/>
+</mujoco>

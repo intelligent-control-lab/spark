@@ -1,0 +1,4 @@
+<mujoco model="r1lite_fixed_base_scene">
+  <include file="../galaxea_r1lite/r1lite_fixed_base.xml"/>
+  <!-- <include file="../scene/meat_off_grill_world.xml"/> -->
+</mujoco>

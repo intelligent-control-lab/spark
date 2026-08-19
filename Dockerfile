@@ -1,137 +1,94 @@
-ARG BASE_IMAGE=ubuntu:24.04
-# ARG BASE_IMAGE=osrf/ros:jazzy-simulation
+# syntax=docker/dockerfile:1
 
-####################
-# 
-# Base Image
-# 
-# Includes Miniconda, CUDA JIT, and OpenGL and system dependencies for MuJoCo.
-# Defaults to Ubuntu, but can be overridden by the `BASE_IMAGE` build arg 
-# for example, to use a ROS jazzy simulation image, set BASE_IMAGE=osrf/ros:jazzy-simulation
-####################
+ARG BASE_IMAGE=python:3.10-slim-bookworm
 
-FROM ${BASE_IMAGE} AS spark-base
+FROM ${BASE_IMAGE} AS spark
 
-ARG WITH_ROS=false
-# Specify a miniconda3. (see versions here https://repo.anaconda.com/miniconda/)
-ARG CONAD_VERSION=py313_26.1.1-1
-# ARG CONAD_VERSION=latest
+ARG SPARK_VERSION=2.0.0
 
-# Environment Variables for Conda and CUDA
-ENV DEBIAN_FRONTEND=noninteractive
-ARG CONDA_PREFIX=/opt/conda
-ENV CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes
-ENV CUDA_HOME=/usr/local/cuda
-ENV PATH="${CONDA_PREFIX}/bin:${CUDA_HOME}/bin:${PATH}"
-# for GPU Rendering
-ENV LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${CUDA_HOME}/compat"
-ENV LIBGL_ALWAYS_SOFTWARE=0
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility
-# for MuJoCo
-ENV MUJOCO_GL=glx
-ENV __GLX_VENDOR_LIBRARY_NAME=nvidia
-# IMPORTANT: for WSLg OpenGL support in WSL2 with NVIDIA GPU
-ENV LD_LIBRARY_PATH=/usr/lib/wsl/lib:${LD_LIBRARY_PATH}
+LABEL org.opencontainers.image.title="SPARK" \
+      org.opencontainers.image.description="Safe Protective and Assistive Robot Kit" \
+      org.opencontainers.image.source="https://github.com/intelligent-control-lab/spark" \
+      org.opencontainers.image.version="${SPARK_VERSION}"
 
-# Install OpenGL and system dependencies for MuJoCo
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    gnupg \
-    wget \
-    git \
-    libgl1 \
-    libglvnd0 \
-    libglx0 \
-    mesa-utils \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    libgtk-3-0 \
-    && rm -rf /var/lib/apt/lists/*
-    
-# Install NVIDIA CUDA toolkit Numba and CUDA JIT-compilation.
-RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb -O /tmp/cuda-keyring.deb && \
-    dpkg -i /tmp/cuda-keyring.deb && \
-    rm /tmp/cuda-keyring.deb && \
-    apt-get update && apt-get install -y --no-install-recommends \
-    cuda-compiler-12-6 \
-    && apt-get clean \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    VIRTUAL_ENV=/opt/spark-venv \
+    PATH=/opt/spark-venv/bin:${PATH} \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    OMP_NUM_THREADS=4 \
+    MUJOCO_GL=glx
+
+# Keep the base usable for the numerical core, MuJoCo/X11 rendering, ROS base
+# images, and the optional Isaac profile. NVIDIA drivers are supplied by the
+# host container runtime; the default image does not install a CUDA toolkit.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        bash \
+        build-essential \
+        ca-certificates \
+        curl \
+        git \
+        libdbus-1-3 \
+        libegl1 \
+        libfontconfig1 \
+        libfreetype6 \
+        libgl1 \
+        libglib2.0-0 \
+        libglx0 \
+        libosmesa6 \
+        libsm6 \
+        libx11-6 \
+        libx11-xcb1 \
+        libxcb-cursor0 \
+        libxcb-xinerama0 \
+        libxcursor1 \
+        libxext6 \
+        libxi6 \
+        libxinerama1 \
+        libxkbcommon-x11-0 \
+        libxrandr2 \
+        libxrender1 \
+        libxxf86vm1 \
+        pkg-config \
+        python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Miniconda
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-${CONAD_VERSION}-Linux-x86_64.sh -O /tmp/miniconda.sh && \
-    bash /tmp/miniconda.sh -b -u -p /opt/conda && \
-    rm /tmp/miniconda.sh && \
-    conda init --all --system
+WORKDIR /workspace/spark
 
+COPY docker/entrypoint.sh /usr/local/bin/spark-entrypoint
+RUN chmod 0755 /usr/local/bin/spark-entrypoint
 
-# Install ROS 2 dependencies
-# Uncomment the following and add desired ROS dependencies
-# 
-# RUN if [ "${WITH_ROS}" = "true" ]; then \
-#     apt-get update && apt-get install -y --no-install-recommends \
-#     ros-${ROS_DISTRO}-rviz2 \
-#     ros-${ROS_DISTRO}-rviz-default-plugins \
-#     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
-#     && apt-get clean \
-#     && rm -rf /var/lib/apt/lists/*; \
-#     fi
+COPY . .
 
-# Update bash config to source ROS setup script if ROS is included in the image
-RUN if [ "${WITH_ROS}" = "true" ]; then \
-        echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /etc/bash.bashrc; \
-    fi
+# Use the repository's installer as the single source of truth. Boolean build
+# arguments map directly to the optional dependency switches documented by
+# install.sh; no optional stack is silently added to the default image.
+ARG SPARK_PYTHON=3.10
+ARG SPARK_PROFILE=mujoco
+ARG SPARK_WITH_ROS=false
+ARG SPARK_WITH_TORCH=false
+ARG SPARK_WITH_LEARNED=false
+ARG SPARK_WITH_UNITREE_SDK=false
+ARG SPARK_WITH_DEV=false
+RUN install_args=( \
+        --env-manager venv \
+        --path "${VIRTUAL_ENV}" \
+        --profile "${SPARK_PROFILE}" \
+        --python "${SPARK_PYTHON}" \
+    ) \
+    && if [[ "${SPARK_WITH_ROS}" == "true" ]]; then install_args+=(--ros); fi \
+    && if [[ "${SPARK_WITH_TORCH}" == "true" ]]; then install_args+=(--torch); fi \
+    && if [[ "${SPARK_WITH_LEARNED}" == "true" ]]; then install_args+=(--learned); fi \
+    && if [[ "${SPARK_WITH_UNITREE_SDK}" == "true" ]]; then \
+        install_args+=(--unitree-sdk); \
+    fi \
+    && if [[ "${SPARK_WITH_DEV}" == "true" ]]; then install_args+=(--dev); fi \
+    && ./install.sh "${install_args[@]}" \
+    && python -c 'import spark_agent, spark_env, spark_pipeline, spark_policy, spark_robot, spark_task, spark_utils'
 
-CMD [ "/bin/bash" ]
-
-
-####################
-#
-# Runtime Image 
-# 
-# Clones the Spark repository main branch and runs the installation script 
-# to set up the Spark application and its dependencies.
-####################
-
-FROM spark-base AS spark
-ARG WITH_ROS=false
-ARG PYTHON_VERSION=3.10
-ARG USE_REMOTE_SRC=false
-
-WORKDIR /home/spark
-
-# Copy SPARK local repo
-COPY . /home/spark/spark
-# Optionally, instead use the remote repo source hosted on Github to install Spark
-# if USE_REMOTE_SRC is set "true"
-RUN if [ "${USE_REMOTE_SRC}" = "true" ]; then \
-rm -rf /home/spark/spark && \
-git clone -b main https://github.com/intelligent-control-lab/spark.git spark; \
-fi
-
-# clean conda cache and install SPARK
-# RUN conda clean --all -y 2>/dev/null
-RUN  cd spark && \
-chmod +x install.sh && \
-./install.sh \
---name spark \
---python ${PYTHON_VERSION} \
-# Install ROS dependencies if WITH_ROS is true
-$(if [ "${WITH_ROS}" = "true" ]; then echo "--ros"; fi)
-
-# Create a new user named 'spark'
-# RUN useradd -ms /bin/bash spark
-# switch to the spark user
-# RUN chown -R spark:spark /home/spark /opt/conda
-# USER spark
-
-# Update bash config to activate the conda environment on login
-RUN conda init --all 
-RUN echo "conda activate spark" >> /root/.bashrc
-
-WORKDIR /home/spark/spark
-
-ENV DEBIAN_FRONTEND=readline
-
+ENTRYPOINT ["/usr/local/bin/spark-entrypoint"]
+CMD ["bash"]

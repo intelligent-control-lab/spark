@@ -28,6 +28,7 @@ from spark_robot.base.base_robot_config import RobotConfig
 # Utilities
 # =============================================================================
 
+
 def normalize(name: str) -> str:
     return name.replace("::", "_").replace(".", "_").replace("/", "_")
 
@@ -65,19 +66,18 @@ def replace_or_insert_assignment(text, name, new_block, anchor="CollisionVol"):
     if assign_re.search(text):
         return assign_re.sub(new_block, text, count=1)
 
-    anchor_re = re.compile(
-        rf"(?ms)^[ \t]*{anchor}\s*=\s*\{{.*?\}}\s*"
-    )
+    anchor_re = re.compile(rf"(?ms)^[ \t]*{anchor}\s*=\s*\{{.*?\}}\s*")
     m = anchor_re.search(text)
     if not m:
         raise RuntimeError(f"Cannot find anchor '{anchor}' to insert '{name}'")
 
-    return text[:m.end()] + "\n\n" + new_block + text[m.end():]
+    return text[: m.end()] + "\n\n" + new_block + text[m.end() :]
 
 
 # =============================================================================
 # Frames parsing / generation
 # =============================================================================
+
 
 def parse_existing_frames(text):
     m = FRAMES_RE.search(text)
@@ -103,6 +103,7 @@ def gen_frames_block(existing, generated):
 # Collision blocks
 # =============================================================================
 
+
 def emit_collision_vol(existing_lines, generated_lines):
     lines = ["    CollisionVol = {"]
     for l in existing_lines:
@@ -125,16 +126,13 @@ def parse_existing_collision_vol(text):
     m = re.search(r"(?ms)CollisionVol\s*=\s*\{(?P<body>.*?)\n\s*\}", text)
     if not m:
         return []
-    return [
-        line.strip().rstrip(",")
-        for line in m.group("body").splitlines()
-        if line.strip()
-    ]
+    return [line.strip().rstrip(",") for line in m.group("body").splitlines() if line.strip()]
 
 
 # =============================================================================
 # Collision detection
 # =============================================================================
+
 
 def extract_centers(frames):
     return frames[:, :3, 3]
@@ -164,11 +162,13 @@ def auto_detect_ignored_collision_pairs(
     pair_hits = defaultdict(int)
     lower_limits = np.clip(
         robot_kinematics.reduced_fixed_base_model.lowerPositionLimit,
-        -np.pi, np.pi,
+        -np.pi,
+        np.pi,
     )
     upper_limits = np.clip(
         robot_kinematics.reduced_fixed_base_model.upperPositionLimit,
-        -np.pi, np.pi,
+        -np.pi,
+        np.pi,
     )
     for _ in range(num_samples):
         q = rng.uniform(
@@ -181,10 +181,7 @@ def auto_detect_ignored_collision_pairs(
         for i, j in combinations(range(len(frames_enum)), 2):
             if link_id(names[i]) == link_id(names[j]):
                 pair_hits[(i, j)] += 1
-            if check_sphere_collision(
-                centers[i], radii[i],
-                centers[j], radii[j]
-            ):
+            if check_sphere_collision(centers[i], radii[i], centers[j], radii[j]):
                 pair_hits[(i, j)] += 1
 
     ignored = []
@@ -196,15 +193,24 @@ def auto_detect_ignored_collision_pairs(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-config", default="module/spark_robot/spark_robot/r1lite/config/r1lite_upper_dynamic_1_config.py")
-    parser.add_argument("--collision-json", default="module/spark_robot/spark_robot/r1lite/config/r1lite_collision_spheres.json")
-    parser.add_argument("--output", default="module/spark_robot/spark_robot/r1lite/config/r1lite_upper_dynamic_1_collision_config.py")
-    parser.add_argument("--class-name", default="R1LiteUpperDynamic1CollisionConfig")
+    parser.add_argument(
+        "--base-config",
+        default="module/spark_robot/spark_robot/galaxea_r1lite/config/galaxea_r1lite_upper_body_dynamic_1_config.py",
+    )
+    parser.add_argument(
+        "--collision-json",
+        default="module/spark_robot/spark_robot/galaxea_r1lite/config/galaxea_r1lite_collision_spheres.json",
+    )
+    parser.add_argument(
+        "--output",
+        default="module/spark_robot/spark_robot/galaxea_r1lite/config/galaxea_r1lite_upper_body_dynamic_1_collision_config.py",
+    )
+    parser.add_argument("--class-name", default="GalaxeaR1LiteUpperBodyDynamic1CollisionConfig")
 
-    # parser.add_argument("--base-config", default="module/spark_robot/spark_robot/gen3/config/gen3_single_dynamic_1_config.py")
-    # parser.add_argument("--collision-json", default="module/spark_robot/spark_robot/gen3/config/gen3_single_collision_spheres.json")
-    # parser.add_argument("--output", default="module/spark_robot/spark_robot/gen3/config/gen3_single_dynamic_1_collision_config.py")
-    # parser.add_argument("--class-name", default="Gen3SingleDynamic1CollisionConfig")
+    # parser.add_argument("--base-config", default="module/spark_robot/spark_robot/kinova_gen3/config/kinova_gen3_single_arm_dynamic_1_config.py")
+    # parser.add_argument("--collision-json", default="module/spark_robot/spark_robot/kinova_gen3/config/kinova_gen3_single_arm_collision_spheres.json")
+    # parser.add_argument("--output", default="module/spark_robot/spark_robot/kinova_gen3/config/kinova_gen3_single_arm_dynamic_1_collision_config.py")
+    # parser.add_argument("--class-name", default="KinovaGen3SingleArmDynamic1CollisionConfig")
     args = parser.parse_args()
 
     base_text = Path(args.base_config).read_text()
@@ -266,10 +272,7 @@ def main():
     )
 
     ignored = auto_detect_ignored_collision_pairs(robot_cfg, robot_kin)
-    adjacent = [
-        f"[Frames.{a.name}, Frames.{b.name}]"
-        for a, b in ignored
-    ]
+    adjacent = [f"[Frames.{a.name}, Frames.{b.name}]" for a, b in ignored]
 
     base_text = replace_or_insert_assignment(
         base_text,

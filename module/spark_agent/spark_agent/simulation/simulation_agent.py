@@ -2,8 +2,8 @@ import numpy as np
 from spark_agent.base.base_agent import BaseAgent
 from abc import ABC, abstractmethod
 
-class SimulationAgent(BaseAgent):
 
+class SimulationAgent(BaseAgent):
     def __init__(self, robot_cfg):
         super().__init__(robot_cfg)
         self.use_sim_dynamics = True
@@ -19,6 +19,3 @@ class SimulationAgent(BaseAgent):
 
     def _send_control_modeled_dynamics(self, command: np.ndarray, **kwargs) -> None:
         raise NotImplementedError("send_vel_command_modeled_dynamics not implemented")
-
-
-    

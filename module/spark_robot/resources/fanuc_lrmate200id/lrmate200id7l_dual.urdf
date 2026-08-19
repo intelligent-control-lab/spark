@@ -1,0 +1,327 @@
+<?xml version="1.0"?>
+<!--
+  Dual FANUC LR Mate 200iD/7L articulation for SPARK.
+
+  Each arm is the ROS-Industrial-derived chain from lrmate200id7l.urdf. The
+  fixed base transforms match lrmate200id_dual.xml. See README.md and
+  LICENSE.ros_industrial_fanuc for provenance and license.
+-->
+<robot name="fanuc_lrmate200id7l_dual">
+  <material name="fanuc_gray28">
+    <color rgba="0.28 0.28 0.28 1"/>
+  </material>
+  <material name="fanuc_yellow">
+    <color rgba="0.96 0.76 0.13 1"/>
+  </material>
+  <material name="fanuc_black">
+    <color rgba="0.15 0.15 0.15 1"/>
+  </material>
+  <material name="spark_gripper_black"><color rgba="0.12 0.13 0.15 1"/></material>
+
+  <link name="world"/>
+
+  <link name="right_base_link">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/base_link.stl"/></geometry>
+      <material name="fanuc_gray28"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/base_link.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="world_to_right_base_link" type="fixed">
+    <origin xyz="0 -0.45 0" rpy="0 0 0"/>
+    <parent link="world"/>
+    <child link="right_base_link"/>
+  </joint>
+
+  <link name="right_link_1">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_1.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_1.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_joint_1" type="revolute">
+    <origin xyz="0 0 0.330" rpy="0 0 0"/>
+    <parent link="right_base_link"/>
+    <child link="right_link_1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="500" lower="-3.141592654" upper="3.141592654" velocity="6.457718232"/>
+    <dynamics damping="5.0"/>
+  </joint>
+
+  <link name="right_link_2">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_2.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_2.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_joint_2" type="revolute">
+    <origin xyz="0.050 0 0" rpy="0 0 0"/>
+    <parent link="right_link_1"/>
+    <child link="right_link_2"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="500" lower="-2.138028334" upper="2.138028334" velocity="5.410520681"/>
+    <dynamics damping="5.0"/>
+  </joint>
+
+  <link name="right_link_3">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_3.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_3.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_joint_3" type="revolute">
+    <origin xyz="0 0 0.440" rpy="0 0 0"/>
+    <parent link="right_link_2"/>
+    <child link="right_link_3"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="80" lower="-3.752457892" upper="3.752457892" velocity="7.155849934"/>
+    <dynamics damping="3.0"/>
+  </joint>
+
+  <link name="right_link_4">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_4.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_4.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_joint_4" type="revolute">
+    <origin xyz="0 0 0.035" rpy="0 0 0"/>
+    <parent link="right_link_3"/>
+    <child link="right_link_4"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="40" lower="-3.316125579" upper="3.316125579" velocity="9.599310885"/>
+    <dynamics damping="2.0"/>
+  </joint>
+
+  <link name="right_link_5">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_5.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_5.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_joint_5" type="revolute">
+    <origin xyz="0.420 0 0" rpy="0 0 0"/>
+    <parent link="right_link_4"/>
+    <child link="right_link_5"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="30" lower="-2.181661565" upper="2.181661565" velocity="9.512536902"/>
+    <dynamics damping="1.5"/>
+  </joint>
+
+  <link name="right_link_6">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_6.stl"/></geometry>
+      <material name="fanuc_black"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_6.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="right_joint_6" type="revolute">
+    <origin xyz="0.080 0 0" rpy="0 0 0"/>
+    <parent link="right_link_5"/>
+    <child link="right_link_6"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="20" lower="-6.283185307" upper="6.283185307" velocity="17.453292520"/>
+    <dynamics damping="1.0"/>
+  </joint>
+
+  <link name="right_flange"/>
+  <joint name="right_link_6_to_flange" type="fixed">
+    <parent link="right_link_6"/>
+    <child link="right_flange"/>
+  </joint>
+  <link name="right_tool0"/>
+  <joint name="right_flange_to_tool0" type="fixed">
+    <origin xyz="0 0 0" rpy="3.141592654 -1.570796327 0"/>
+    <parent link="right_flange"/>
+    <child link="right_tool0"/>
+  </joint>
+
+  <link name="left_base_link">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/base_link.stl"/></geometry>
+      <material name="fanuc_gray28"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/base_link.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="world_to_left_base_link" type="fixed">
+    <origin xyz="0 0.45 0" rpy="0 0 0"/>
+    <parent link="world"/>
+    <child link="left_base_link"/>
+  </joint>
+
+  <link name="left_link_1">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_1.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_1.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_joint_1" type="revolute">
+    <origin xyz="0 0 0.330" rpy="0 0 0"/>
+    <parent link="left_base_link"/>
+    <child link="left_link_1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="500" lower="-3.141592654" upper="3.141592654" velocity="6.457718232"/>
+    <dynamics damping="5.0"/>
+  </joint>
+
+  <link name="left_link_2">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_2.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_2.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_joint_2" type="revolute">
+    <origin xyz="0.050 0 0" rpy="0 0 0"/>
+    <parent link="left_link_1"/>
+    <child link="left_link_2"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="500" lower="-2.138028334" upper="2.138028334" velocity="5.410520681"/>
+    <dynamics damping="5.0"/>
+  </joint>
+
+  <link name="left_link_3">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_3.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_3.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_joint_3" type="revolute">
+    <origin xyz="0 0 0.440" rpy="0 0 0"/>
+    <parent link="left_link_2"/>
+    <child link="left_link_3"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="80" lower="-3.752457892" upper="3.752457892" velocity="7.155849934"/>
+    <dynamics damping="3.0"/>
+  </joint>
+
+  <link name="left_link_4">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_4.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_4.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_joint_4" type="revolute">
+    <origin xyz="0 0 0.035" rpy="0 0 0"/>
+    <parent link="left_link_3"/>
+    <child link="left_link_4"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="40" lower="-3.316125579" upper="3.316125579" velocity="9.599310885"/>
+    <dynamics damping="2.0"/>
+  </joint>
+
+  <link name="left_link_5">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_5.stl"/></geometry>
+      <material name="fanuc_yellow"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_5.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_joint_5" type="revolute">
+    <origin xyz="0.420 0 0" rpy="0 0 0"/>
+    <parent link="left_link_4"/>
+    <child link="left_link_5"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="30" lower="-2.181661565" upper="2.181661565" velocity="9.512536902"/>
+    <dynamics damping="1.5"/>
+  </joint>
+
+  <link name="left_link_6">
+    <visual>
+      <geometry><mesh filename="./meshes/lrmate200id/link_6.stl"/></geometry>
+      <material name="fanuc_black"/>
+    </visual>
+    <collision>
+      <geometry><mesh filename="./meshes/lrmate200id/link_6.stl"/></geometry>
+    </collision>
+  </link>
+  <joint name="left_joint_6" type="revolute">
+    <origin xyz="0.080 0 0" rpy="0 0 0"/>
+    <parent link="left_link_5"/>
+    <child link="left_link_6"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="20" lower="-6.283185307" upper="6.283185307" velocity="17.453292520"/>
+    <dynamics damping="1.0"/>
+  </joint>
+
+  <link name="left_flange"/>
+  <joint name="left_link_6_to_flange" type="fixed">
+    <parent link="left_link_6"/>
+    <child link="left_flange"/>
+  </joint>
+  <link name="left_tool0"/>
+  <joint name="left_flange_to_tool0" type="fixed">
+    <origin xyz="0 0 0" rpy="3.141592654 -1.570796327 0"/>
+    <parent link="left_flange"/>
+    <child link="left_tool0"/>
+  </joint>
+  <!-- Static open-pose Robotiq 3F visuals for backend rendering parity. -->
+  <link name="right_spark_robotiq_3f_visual">
+    <inertial><origin xyz="0 0 0"/><mass value="0.001"/><inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/></inertial>
+    <visual><origin xyz="0.06885 0 0" rpy="1.57079633 1.57079633 0"/><geometry><mesh filename="./meshes/robotiq_3f/palm_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.11035 0 -0.0455" rpy="1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_0_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.16035 0 -0.0735" rpy="1.57079633 0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_1_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.195099233 -0.0075 -0.0912056712" rpy="1.57079633 0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_2_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.195099233 0 -0.0912056712" rpy="1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_3_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.11185 0.036 0.045" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_0_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.16185 0.036 0.073" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_1_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 0.0435 0.0907056712" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_2_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 0.036 0.0907056712" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_3_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.11185 -0.036 0.045" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_0_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.16185 -0.036 0.073" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_1_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 -0.0285 0.0907056712" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_2_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 -0.036 0.0907056712" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_3_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+  </link>
+  <joint name="right_spark_robotiq_3f_mount" type="fixed"><parent link="right_link_6"/><child link="right_spark_robotiq_3f_visual"/></joint>
+  <link name="left_spark_robotiq_3f_visual">
+    <inertial><origin xyz="0 0 0"/><mass value="0.001"/><inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/></inertial>
+    <visual><origin xyz="0.06885 0 0" rpy="1.57079633 1.57079633 0"/><geometry><mesh filename="./meshes/robotiq_3f/palm_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.11035 0 -0.0455" rpy="1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_0_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.16035 0 -0.0735" rpy="1.57079633 0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_1_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.195099233 -0.0075 -0.0912056712" rpy="1.57079633 0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_2_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.195099233 0 -0.0912056712" rpy="1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_3_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.11185 0.036 0.045" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_0_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.16185 0.036 0.073" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_1_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 0.0435 0.0907056712" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_2_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 0.036 0.0907056712" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_3_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.11185 -0.036 0.045" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_0_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.16185 -0.036 0.073" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_1_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 -0.0285 0.0907056712" rpy="-1.57079633 -0.471240098 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_2_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+    <visual><origin xyz="0.196599233 -0.036 0.0907056712" rpy="-1.57079633 0 0"/><geometry><mesh filename="./meshes/robotiq_3f/link_3_vis.stl"/></geometry><material name="spark_gripper_black"/></visual>
+  </link>
+  <joint name="left_spark_robotiq_3f_mount" type="fixed"><parent link="left_link_6"/><child link="left_spark_robotiq_3f_visual"/></joint>
+</robot>

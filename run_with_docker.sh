@@ -2,29 +2,55 @@
 
 set -euo pipefail
 
-usage (){
-	echo "Usage: $0 {ros|wsl|default} <spark-run-file>" >&2
+usage() {
+    cat <<'EOF'
+Usage:
+  ./run_with_docker.sh PROFILE [SCRIPT.py [ARGS...]]
+  ./run_with_docker.sh PROFILE COMMAND [ARGS...]
+
+Profiles: core, default, mujoco, isaac, ros, wsl
+
+With no command, the selected container opens an interactive shell. A first
+argument ending in .py is run with Python for compatibility with SPARK v1.
+EOF
 }
 
 profile="${1:-default}"
-
-# check for container variant
-case "$profile" in
-	ros|wsl|default)
-		shift || true
-		;;
-	*)
-		usage
-		echo 'Must specify a container variant, e.g., "default"'
-		exit 1
-		;;
-esac
-
-# check for run file
-if [[ $# -eq 0 ]]; then
-	usage
-	echo "Must specify a spark run file"
-	exit 1
+if [[ $# -gt 0 ]]; then
+    shift
 fi
 
-docker compose run --remove-orphans spark-${profile} bash -ic "source /root/.bashrc && python $1"
+case "${profile}" in
+    core)
+        service="spark-core"
+        compose_profile="core"
+        ;;
+    default|mujoco)
+        service="spark-default"
+        compose_profile="default"
+        ;;
+    isaac|ros|wsl)
+        service="spark-${profile}"
+        compose_profile="${profile}"
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        echo "Error: unknown Docker profile: ${profile}" >&2
+        exit 2
+        ;;
+esac
+
+if [[ $# -eq 0 ]]; then
+    command=(bash)
+elif [[ "$1" == *.py ]]; then
+    command=(python "$@")
+else
+    command=("$@")
+fi
+
+exec docker compose --profile "${compose_profile}" run \
+    --rm --remove-orphans "${service}" "${command[@]}"

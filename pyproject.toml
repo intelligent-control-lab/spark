@@ -1,0 +1,16 @@
+[tool.ruff]
+required-version = "==0.16.3"
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+    "module/spark_policy/spark_policy/control/whole_body/unitree_g1/wbt/runtime/**",
+]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = false

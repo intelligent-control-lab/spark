@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+
 def quaternion_to_rotation_matrix(q):
     """
     Converts a quaternion into a 3x3 rotation matrix.
@@ -13,17 +14,20 @@ def quaternion_to_rotation_matrix(q):
     """
     w, x, y, z = q
 
-    R = np.array([
-        [1 - 2 * (y**2 + z**2), 2 * (x*y - z*w), 2 * (x*z + y*w)],
-        [2 * (x*y + z*w), 1 - 2 * (x**2 + z**2), 2 * (y*z - x*w)],
-        [2 * (x*z - y*w), 2 * (y*z + x*w), 1 - 2 * (x**2 + y**2)]
-    ])
+    R = np.array(
+        [
+            [1 - 2 * (y**2 + z**2), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x**2 + z**2), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x**2 + y**2)],
+        ]
+    )
     return R
+
 
 def transformation_to_pos_quat(transform_matrix):
     """
     Convert a 4x4 transformation matrix to position and quaternion.
-    
+
     :param transform_matrix: 4x4 numpy array representing the transformation matrix
     :return: position (tuple) and quaternion (tuple)
     """
@@ -47,10 +51,11 @@ def transformation_to_pos_quat(transform_matrix):
 
     return np.array(position), np.array([qx, qy, qz, qw])
 
+
 def pos_quat_to_transformation(position, quaternion):
     """
     Convert position and quaternion to a 4x4 transformation matrix.
-    
+
     :param position: Tuple representing (x, y, z)
     :param quaternion: Tuple representing (qx, qy, qz, qw)
     :return: 4x4 numpy array representing the transformation matrix
@@ -69,12 +74,17 @@ def pos_quat_to_transformation(position, quaternion):
     r33 = 1 - 2 * (qx**2 + qy**2)
 
     # Create the transformation matrix
-    transform_matrix = np.array([[r11, r12, r13, position[0]],
-                                  [r21, r22, r23, position[1]],
-                                  [r31, r32, r33, position[2]],
-                                  [0,   0,   0,   1]])
+    transform_matrix = np.array(
+        [
+            [r11, r12, r13, position[0]],
+            [r21, r22, r23, position[1]],
+            [r31, r32, r33, position[2]],
+            [0, 0, 0, 1],
+        ]
+    )
 
     return transform_matrix
+
 
 def se3_to_transformation(se3):
     """
@@ -96,22 +106,28 @@ def se3_to_transformation(se3):
 
     return transformation_matrix
 
-def rpy2quat(rpy, order='xyz'):
+
+def rpy2quat(rpy, order="xyz"):
     r = R.from_euler(order, rpy, degrees=False)
     quat = r.as_quat()
     return quat
 
-def quat2rpy(quat, order='xyz'):
+
+def quat2rpy(quat, order="xyz"):
     r = R.from_quat(quat)
     rpy = r.as_euler(order, degrees=False)
     return rpy
 
+
 def quat2SE3(quat: np.ndarray, position: np.ndarray):
-    se3 = pin.SE3(
-        pin.Quaternion(quat[0], quat[1], quat[2], quat[3]),
-        position
-    )
+    try:
+        import pinocchio as pin
+    except ImportError as exc:
+        raise RuntimeError("quat2SE3 requires the optional 'pin' package") from exc
+
+    se3 = pin.SE3(pin.Quaternion(quat[0], quat[1], quat[2], quat[3]), position)
     return se3
+
 
 def rpy2SE3(rpy: np.ndarray, position: np.ndarray):
     quat = rpy2quat(rpy)

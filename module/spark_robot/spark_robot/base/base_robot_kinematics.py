@@ -5,6 +5,7 @@ import json
 import os
 from spark_robot import SPARK_ROBOT_ROOT
 
+
 class RobotKinematics(ABC):
     """
     An abstract base class for defining robot kinematics.
@@ -12,9 +13,9 @@ class RobotKinematics(ABC):
 
     def __init__(self, robot_cfg: RobotConfig) -> None:
         super().__init__()
-        
+
         self.robot_cfg = robot_cfg
-        self.num_dof   = len(self.robot_cfg.DoFs)
+        self.num_dof = len(self.robot_cfg.DoFs)
         self.num_control = len(self.robot_cfg.Control)
 
     @abstractmethod
@@ -26,10 +27,10 @@ class RobotKinematics(ABC):
         Input:
             trans_world2base: [4, 4], SE(3) of robot base frame in world frame
             dof: 1D array, current dof values defined by RobotConfig.DoFs
-            
+
         Output:
             T: [4, 4], SE(3) of robot base frame in world frame
-        
+
         """
         pass
 
@@ -40,10 +41,10 @@ class RobotKinematics(ABC):
 
         Input:
             dof: 1D array, current dof values defined by RobotConfig.DoFs
-            
+
         Output:
             T: [num_frames, 4, 4], SE(3) of RobotConfig.Frames in robot base frame
-        
+
         """
         pass
 
@@ -54,11 +55,11 @@ class RobotKinematics(ABC):
 
         Input:
             T: [num_frames, 4, 4], SE(3) of frames to solve for in robot base frame
-            
+
         Output:
             dof: 1D array, dof values defined by RobotConfig.DoFs
             info: dict with additional information
-        
+
         """
         pass
 
@@ -67,7 +68,9 @@ class RobotKinematics(ABC):
         Returns:
             Dict[str, List[Dict]] mapping link_name -> list of spheres
         """
-        path = os.path.join(SPARK_ROBOT_ROOT, "spark_robot", self.robot_cfg.collision_spheres_json_path)
+        path = os.path.join(
+            SPARK_ROBOT_ROOT, "spark_robot", self.robot_cfg.collision_spheres_json_path
+        )
         if path is None:
             return {}
 

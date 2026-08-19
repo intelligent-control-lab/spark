@@ -1,0 +1,18 @@
+<mujoco model="meat_off_grill_scene">
+    <asset>
+        <mesh name="grill_mesh"   file="../../objects/rl_bench_mesh/meat_off_grill/grill.obj"/>
+        <mesh name="steak_mesh"   file="../../objects/rl_bench_mesh/meat_off_grill/steak.obj"/>
+    </asset>
+
+    <worldbody>
+        <body pos="0.33025404 0.02189426 0.18313332" quat="0.703 -0.703 -0.079 0.079" name="grill">
+            <freejoint/>
+            <geom type="mesh" mesh="grill_mesh" pos="-0.28 0.03 -1.0"/>
+        </body>
+
+        <body pos="0.4 0.23 0.355" quat="0.698 0.071 -0.707 0.089" name="steak">
+            <freejoint/>
+            <geom type="mesh" mesh="steak_mesh" rgba="0.55 0.18 0.12 1" pos="-0.28 0.1 -1.02"/>
+        </body>
+    </worldbody>
+</mujoco>

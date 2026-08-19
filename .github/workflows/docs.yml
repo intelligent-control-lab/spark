@@ -1,0 +1,72 @@
+name: Documentation
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "tools/publish_docs.sh"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [master]
+    paths:
+      - "docs/**"
+      - "tools/publish_docs.sh"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spark-documentation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out SPARK
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+
+      - name: Install documentation dependencies
+        run: python -m pip install -r docs/requirements.txt
+
+      - name: Build documentation
+        run: make -C docs html
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-documentation-${{ github.sha }}
+          path: docs/_build/html
+          if-no-files-found: error
+
+      - name: Publish generated site
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        env:
+          DOCS_PUBLISH_TOKEN: ${{ secrets.DOCS_PUBLISH_TOKEN }}
+          DOCS_PUBLISH_REPOSITORY: ${{ vars.DOCS_PUBLISH_REPOSITORY }}
+        run: |
+          if [[ -z "${DOCS_PUBLISH_TOKEN}" || -z "${DOCS_PUBLISH_REPOSITORY}" ]]; then
+            echo "Documentation publishing is not configured; skipping publication."
+            exit 0
+          fi
+          git clone "https://x-access-token:${DOCS_PUBLISH_TOKEN}@github.com/${DOCS_PUBLISH_REPOSITORY}.git" ../spark-docs-site
+          rsync -a --delete --exclude='.git/' --exclude='.doctrees/' --exclude='CNAME' --exclude='README.md' docs/_build/html/ ../spark-docs-site/
+          touch ../spark-docs-site/.nojekyll
+          git -C ../spark-docs-site config user.name "github-actions[bot]"
+          git -C ../spark-docs-site config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C ../spark-docs-site add --all
+          if git -C ../spark-docs-site diff --cached --quiet; then
+            echo "Published site is already current."
+          else
+            git -C ../spark-docs-site commit -m "Publish SPARK docs from ${GITHUB_SHA}"
+            git -C ../spark-docs-site push origin HEAD:main
+          fi

@@ -1,0 +1,593 @@
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt
+index b713922..d1abf1f 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/CMakeLists.txt
+@@ -136,6 +136,12 @@ if(NOT ZMQ_INCLUDE_DIR OR NOT ZMQ_LIBRARY)
+   message(FATAL_ERROR "❌ libzmq is required but not found. Please install libzmq-dev (apt) or zeromq (brew)")
+ endif()
+ 
++set(CPPZMQ_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/thirdparty/cppzmq")
++if(EXISTS "${CPPZMQ_INCLUDE_DIR}/zmq.hpp")
++  message(STATUS "✅ Using vendored cppzmq headers: ${CPPZMQ_INCLUDE_DIR}")
++  set(CPPZMQ_INCLUDE_DIRS ${CPPZMQ_INCLUDE_DIR})
++endif()
++
+ # Add ZMQ to main executable
+ message(STATUS "✅ ZMQ support enabled for main executable")
+ 
+@@ -145,8 +151,9 @@ if(ZMQ_INCLUDE_DIR AND ZMQ_LIBRARY)
+     ${CMAKE_CURRENT_SOURCE_DIR}/tests/zmq_pose_subscriber_test.cpp)
+   target_include_directories(zmq_pose_subscriber_test PRIVATE
+     ${CMAKE_CURRENT_SOURCE_DIR}/include
++    ${CPPZMQ_INCLUDE_DIRS}
+     ${ZMQ_INCLUDE_DIR})
+-  target_link_libraries(zmq_pose_subscriber_test PRIVATE ${ZMQ_LIBRARY})
++  target_link_libraries(zmq_pose_subscriber_test PRIVATE ${ZMQ_LIBRARY} Threads::Threads)
+   set_target_properties(zmq_pose_subscriber_test PROPERTIES
+     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/target/release/"
+     CXX_STANDARD 20
+@@ -159,8 +166,9 @@ if(ZMQ_INCLUDE_DIR AND ZMQ_LIBRARY)
+     ${CMAKE_CURRENT_SOURCE_DIR}/tests/zmq_python_sender_test.cpp)
+   target_include_directories(zmq_python_sender_test PRIVATE
+     ${CMAKE_CURRENT_SOURCE_DIR}/include
++    ${CPPZMQ_INCLUDE_DIRS}
+     ${ZMQ_INCLUDE_DIR})
+-  target_link_libraries(zmq_python_sender_test PRIVATE ${ZMQ_LIBRARY})
++  target_link_libraries(zmq_python_sender_test PRIVATE ${ZMQ_LIBRARY} Threads::Threads)
+   set_target_properties(zmq_python_sender_test PROPERTIES
+     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/target/release/"
+     CXX_STANDARD 20
+@@ -175,6 +183,7 @@ find_package(Eigen3 REQUIRED)
+ 
+ set(EXE_INCLUDES
+   ${CMAKE_CURRENT_SOURCE_DIR}/include/
++  ${CPPZMQ_INCLUDE_DIRS}
+   ${ZMQ_INCLUDE_DIR}
+   ${EIGEN3_INCLUDE_DIR}
+ )
+@@ -194,6 +203,7 @@ set(EXE_LIBS
+   ${TensorRT_nvinfer_LIBRARY} ${TensorRT_nvonnxparser_LIBRARY}
+   ${CUDLA_LIBRARY}
+   ${ZMQ_LIBRARY}
++  Threads::Threads
+ )
+ 
+ 
+@@ -258,4 +268,4 @@ set_target_properties(
+              OUTPUT_NAME run_tests
+              CXX_STANDARD 20
+              CXX_STANDARD_REQUIRED ON
+-             CXX_EXTENSIONS OFF)
+\ No newline at end of file
++             CXX_EXTENSIONS OFF)
+diff --git a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+index 4dc9f4f..d22c175 100644
+--- a/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
++++ b/gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/src/g1_deploy_onnx_ref.cpp
+@@ -65,6 +65,7 @@
+ #include <chrono>
+ #include <algorithm>
+ #include <numeric>
++#include <sstream>
+ 
+ // DDS
+ #include <unitree/robot/channel/channel_publisher.hpp>
+@@ -138,6 +139,9 @@
+ 
+ #include "audio_thread/audio_thread.hpp"
+ 
++#include <nlohmann/json.hpp>
++#include <zmq.hpp>
++
+ // DDS
+ using namespace unitree::common;
+ using namespace unitree::robot;
+@@ -248,6 +252,7 @@ class G1Deploy {
+     // =========================================================================
+     // Flag to disable CRC checking for MuJoCo simulation
+     bool disable_crc_check_ = false;
++    bool policy_server_mode_ = false;
+     
+     bool reinitialize_heading_ = true;
+     bool report_temperature_ = false;
+@@ -2156,7 +2161,8 @@ class G1Deploy {
+       std::string zmq_out_topic = "g1_debug",
+       bool enable_motion_recording = false,
+       std::array<double, 3> initial_compliance = {0.05, 0.05, 0.0},
+-      double initial_max_close_ratio = 1.0)
++      double initial_max_close_ratio = 1.0,
++      bool policy_server_mode = false)
+       : time_(0.0),
+         publish_dt_(0.002),
+         control_dt_(0.02),
+@@ -2167,6 +2173,7 @@ class G1Deploy {
+         mode_pr_(Mode::PR),
+         mode_machine_(0),
+         disable_crc_check_(disable_crc_check),
++        policy_server_mode_(policy_server_mode),
+         program_state_(ProgramState::INIT),
+         last_action {0.0},
+         last_left_hand_action {0.0},
+@@ -2178,13 +2185,19 @@ class G1Deploy {
+         model_path(model_file_path),
+         planner_path(planner_file_path) {
+       
+-      // Initialize ChannelFactory
+-      ChannelFactory::Instance()->Init(0, networkInterface);
++      if (!policy_server_mode_) {
++        // Initialize ChannelFactory
++        ChannelFactory::Instance()->Init(0, networkInterface);
+ 
+-      // Initialize Dex3 hands (ChannelFactory already initialized above)
+-      dex3_hands_.initialize("");
++        // Initialize Dex3 hands (ChannelFactory already initialized above)
++        dex3_hands_.initialize("");
++      } else {
++        std::cout << "[SparkPolicyServer] DDS and Dex3 publishers are disabled in server mode" << std::endl;
++      }
+ 
+-      audio_thread_ = std::make_unique<AudioThread>();
++      if (!policy_server_mode_) {
++        audio_thread_ = std::make_unique<AudioThread>();
++      }
+ 
+       if(!target_motion_file_path.empty())
+       {
+@@ -2241,24 +2254,26 @@ class G1Deploy {
+       planner_motion_->ReserveCapacity(1500, 29, 1, 1, 0, 0);
+       planner_motion_->timesteps = 0;
+       planner_motion_->name = "planner_motion";
+-      // try to shutdown motion control-related service
+-      msc_ = std::make_unique<unitree::robot::b2::MotionSwitcherClient>();
+-      msc_->SetTimeout(5.0f);
+-      msc_->Init();
+-      std::string form, name;
+-      while (msc_->CheckMode(form, name), !name.empty()) {
+-        if (msc_->ReleaseMode()) std::cout << "Failed to switch to Release Mode\n";
+-        sleep(5);
+-      }
+-
+-      // create publisher
+-      lowcmd_publisher_.reset(new ChannelPublisher<LowCmd_>(HG_CMD_TOPIC));
+-      lowcmd_publisher_->InitChannel();
+-      // create subscriber
+-      lowstate_subscriber_.reset(new ChannelSubscriber<LowState_>(HG_STATE_TOPIC));
+-      lowstate_subscriber_->InitChannel(std::bind(&G1Deploy::LowStateHandler, this, std::placeholders::_1), 1);
+-      imutorso_subscriber_.reset(new ChannelSubscriber<IMUState_>(HG_IMU_TORSO));
+-      imutorso_subscriber_->InitChannel(std::bind(&G1Deploy::imuTorsoHandler, this, std::placeholders::_1), 1);
++      if (!policy_server_mode_) {
++        // try to shutdown motion control-related service
++        msc_ = std::make_unique<unitree::robot::b2::MotionSwitcherClient>();
++        msc_->SetTimeout(5.0f);
++        msc_->Init();
++        std::string form, name;
++        while (msc_->CheckMode(form, name), !name.empty()) {
++          if (msc_->ReleaseMode()) std::cout << "Failed to switch to Release Mode\n";
++          sleep(5);
++        }
++
++        // create publisher
++        lowcmd_publisher_.reset(new ChannelPublisher<LowCmd_>(HG_CMD_TOPIC));
++        lowcmd_publisher_->InitChannel();
++        // create subscriber
++        lowstate_subscriber_.reset(new ChannelSubscriber<LowState_>(HG_STATE_TOPIC));
++        lowstate_subscriber_->InitChannel(std::bind(&G1Deploy::LowStateHandler, this, std::placeholders::_1), 1);
++        imutorso_subscriber_.reset(new ChannelSubscriber<IMUState_>(HG_IMU_TORSO));
++        imutorso_subscriber_->InitChannel(std::bind(&G1Deploy::imuTorsoHandler, this, std::placeholders::_1), 1);
++      }
+       // Load motion data
+       if (motion_reader_.ReadFromCSV(motion_data_path)) {
+         if (!motion_reader_.motions.empty()) {
+@@ -2444,6 +2459,14 @@ class G1Deploy {
+         throw;  // Re-throw to stop program initialization
+       }
+ 
++      if (policy_server_mode_) {
++        program_state_ = ProgramState::CONTROL;
++        operator_state.start = true;
++        operator_state.play = true;
++        std::cout << "[SparkPolicyServer] Model, planner, observations, and logger initialized" << std::endl;
++        return;
++      }
++
+       // Initialize input interface based on type
+       if (input_type == "gamepad") {
+         input_interface_ = std::make_unique<unitree::common::Gamepad>();
+@@ -2695,11 +2718,306 @@ class G1Deploy {
+           planner_thread_ptr_.reset();
+         }
+       }
+-      CreateDampingCommand();
+-      LowCommandWriter();
++      if (!policy_server_mode_) {
++        CreateDampingCommand();
++        LowCommandWriter();
++      }
+       std::cout << "Stop" << std::endl;
+     }
+ 
++    std::vector<double> JsonVector(
++      const nlohmann::json& object,
++      const std::string& key,
++      size_t expected_size,
++      const std::vector<double>& fallback) const {
++      if (!object.contains(key) || !object[key].is_array()) {
++        return fallback;
++      }
++      std::vector<double> values = object[key].get<std::vector<double>>();
++      if (values.size() != expected_size) {
++        std::ostringstream oss;
++        oss << key << " must have " << expected_size << " values, got " << values.size();
++        throw std::runtime_error(oss.str());
++      }
++      return values;
++    }
++
++    std::array<double, 3> JsonArray3(
++      const nlohmann::json& object,
++      const std::string& key,
++      const std::array<double, 3>& fallback) const {
++      if (!object.contains(key) || !object[key].is_array()) {
++        return fallback;
++      }
++      std::vector<double> values = object[key].get<std::vector<double>>();
++      if (values.size() != 3) {
++        std::ostringstream oss;
++        oss << key << " must have 3 values, got " << values.size();
++        throw std::runtime_error(oss.str());
++      }
++      return {values[0], values[1], values[2]};
++    }
++
++    std::array<float, 3> ToFloatArray3(const std::array<double, 3>& values) const {
++      return {
++        static_cast<float>(values[0]),
++        static_cast<float>(values[1]),
++        static_cast<float>(values[2])
++      };
++    }
++
++    std::array<float, 4> ToFloatArray4(const std::vector<double>& values) const {
++      if (values.size() != 4) {
++        std::ostringstream oss;
++        oss << "base_quat must have 4 values, got " << values.size();
++        throw std::runtime_error(oss.str());
++      }
++      return {
++        static_cast<float>(values[0]),
++        static_cast<float>(values[1]),
++        static_cast<float>(values[2]),
++        static_cast<float>(values[3])
++      };
++    }
++
++    void ApplySparkPolicyRequest(const nlohmann::json& request) {
++      std::vector<double> default_actuated(default_angles.begin(), default_angles.end());
++      std::vector<double> actuated_qpos;
++      if (request.contains("actuated_qpos")) {
++        actuated_qpos = JsonVector(request, "actuated_qpos", G1_NUM_MOTOR, default_actuated);
++      } else {
++        std::vector<double> body_qpos = JsonVector(request, "body_qpos", G1_NUM_MOTOR + 7, {});
++        if (body_qpos.size() != G1_NUM_MOTOR + 7) {
++          throw std::runtime_error("request must include actuated_qpos or full body_qpos");
++        }
++        actuated_qpos.assign(body_qpos.begin() + 7, body_qpos.begin() + 7 + G1_NUM_MOTOR);
++      }
++      std::vector<double> actuated_qvel = JsonVector(
++        request,
++        "actuated_qvel",
++        G1_NUM_MOTOR,
++        std::vector<double>(G1_NUM_MOTOR, 0.0)
++      );
++
++      std::vector<double> base_quat;
++      if (request.contains("base_quat")) {
++        base_quat = JsonVector(request, "base_quat", 4, {1.0, 0.0, 0.0, 0.0});
++      } else {
++        std::vector<double> body_qpos = JsonVector(request, "body_qpos", G1_NUM_MOTOR + 7, {});
++        if (body_qpos.size() != G1_NUM_MOTOR + 7) {
++          throw std::runtime_error("request must include base_quat or full body_qpos");
++        }
++        base_quat.assign(body_qpos.begin() + 3, body_qpos.begin() + 7);
++      }
++      const auto base_ang_vel = JsonArray3(request, "base_ang_vel", {0.0, 0.0, 0.0});
++
++      LowState_ low_state;
++      low_state.mode_pr(static_cast<uint8_t>(mode_pr_));
++      low_state.mode_machine(1);
++      low_state.imu_state().quaternion(ToFloatArray4(base_quat));
++      low_state.imu_state().gyroscope(ToFloatArray3(base_ang_vel));
++      low_state.imu_state().accelerometer({0.0f, 0.0f, -9.81f});
++      for (int i = 0; i < G1_NUM_MOTOR; ++i) {
++        auto& motor = low_state.motor_state()[i];
++        motor.mode(1);
++        motor.q(static_cast<float>(actuated_qpos[i]));
++        motor.dq(static_cast<float>(actuated_qvel[i]));
++        motor.ddq(0.0f);
++        motor.tau_est(0.0f);
++        motor.temperature({30, 30});
++        motor.motorstate(0);
++      }
++      low_state_buffer_.SetData(low_state);
++
++      IMUState_ imu_torso;
++      imu_torso.quaternion(ToFloatArray4(base_quat));
++      imu_torso.gyroscope(ToFloatArray3(base_ang_vel));
++      imu_torso.accelerometer({0.0f, 0.0f, -9.81f});
++      imu_torso_buffer_.SetData(imu_torso);
++      mode_machine_ = 1;
++
++      if (request.contains("upper_body_position")) {
++        const auto upper = JsonVector(request, "upper_body_position", 17, std::vector<double>(17, 0.0));
++        for (int i = 0; i < 17; ++i) {
++          upper_body_joint_positions_buffer_[i] = upper[i];
++        }
++        has_upper_body_data_ = true;
++      } else {
++        has_upper_body_data_ = false;
++      }
++
++      const auto upper_vel = JsonVector(
++        request,
++        "upper_body_velocity",
++        17,
++        std::vector<double>(17, 0.0)
++      );
++      for (int i = 0; i < 17; ++i) {
++        upper_body_joint_velocities_buffer_[i] = upper_vel[i];
++      }
++
++      const nlohmann::json planner_request =
++        (request.contains("planner") && request["planner"].is_object())
++          ? request["planner"]
++          : nlohmann::json::object();
++      const int mode = planner_request.value("mode", static_cast<int>(LocomotionMode::IDLE));
++      const auto movement = JsonArray3(planner_request, "movement", {0.0, 0.0, 0.0});
++      const auto facing = JsonArray3(planner_request, "facing", {1.0, 0.0, 0.0});
++      const double speed = planner_request.value("speed", -1.0);
++      const double height = planner_request.value("height", -1.0);
++      movement_state_buffer_.SetData(MovementState(mode, movement, facing, speed, height));
++
++      if (planner_) {
++        planner_->planner_state_.enabled = true;
++      }
++      operator_state.start = request.value("start", true);
++      operator_state.play = true;
++    }
++
++    bool RunSparkPolicyTick(std::string& error_message) {
++      try {
++        logging_counter_++;
++
++        if (planner_ && planner_->planner_state_.enabled) {
++          Planner();
++        }
++
++        if (!GatherRobotStateToLogger()) {
++          error_message = "failed to gather robot state";
++          return false;
++        }
++
++        int current_frame_copy = 0;
++        int current_encoder_mode_copy = initial_encoder_mode_;
++        bool current_play_copy = operator_state.play;
++        std::shared_ptr<const MotionSequence> current_motion_copy = nullptr;
++        {
++          std::lock_guard<std::mutex> lock(current_motion_mutex_);
++          if (!current_motion_ || current_motion_->timesteps == 0) {
++            error_message = "current motion is empty";
++            return false;
++          }
++          current_frame_copy = current_frame_;
++          current_motion_copy = current_motion_;
++          current_encoder_mode_copy = current_motion_copy->GetEncodeMode();
++          saved_frame_for_observation_window_ = 0;
++          UpdateHeadingState();
++          if (!GatherObservations()) {
++            error_message = "failed to gather observations";
++            return false;
++          }
++        }
++
++        if (state_logger_ && current_motion_copy) {
++          const std::string motion_name = current_motion_copy->name;
++          state_logger_->LogPostState(
++            std::span(token_state_data_),
++            current_encoder_mode_copy,
++            motion_name,
++            current_play_copy
++          );
++        }
++
++        if (!CreatePolicyCommand()) {
++          error_message = "policy inference failed";
++          return false;
++        }
++
++        if (!CurrentFrameAdvancement()) {
++          error_message = "failed to advance current frame";
++          return false;
++        }
++
++        (void)current_frame_copy;
++        return true;
++      } catch (const std::exception& e) {
++        error_message = e.what();
++        return false;
++      }
++    }
++
++    nlohmann::json BuildSparkPolicyResponse(const nlohmann::json& request, bool ok, const std::string& error_message) const {
++      nlohmann::json response;
++      response["ok"] = ok;
++      response["seq"] = request.value("seq", -1);
++      if (!ok) {
++        response["error"] = error_message;
++        return response;
++      }
++
++      const std::shared_ptr<const MotorCommand> mc = motor_command_buffer_.GetDataWithTime().data;
++      if (!mc) {
++        response["ok"] = false;
++        response["error"] = "motor command is unavailable";
++        return response;
++      }
++
++      std::vector<double> target_actuated_pos;
++      std::vector<double> motor_kps;
++      std::vector<double> motor_kds;
++      target_actuated_pos.reserve(G1_NUM_MOTOR);
++      motor_kps.reserve(G1_NUM_MOTOR);
++      motor_kds.reserve(G1_NUM_MOTOR);
++      for (int i = 0; i < G1_NUM_MOTOR; ++i) {
++        target_actuated_pos.push_back(static_cast<double>(mc->q_target.at(i)));
++        motor_kps.push_back(static_cast<double>(mc->kp.at(i)));
++        motor_kds.push_back(static_cast<double>(mc->kd.at(i)));
++      }
++
++      response["target_actuated_pos"] = target_actuated_pos;
++      response["motor_kps"] = motor_kps;
++      response["motor_kds"] = motor_kds;
++      response["debug"] = {
++        {"backend", "g1_deploy_onnx_ref_spark_policy_server"},
++        {"planner_enabled", planner_ ? planner_->planner_state_.enabled : false},
++        {"planner_initialized", planner_ ? planner_->planner_state_.initialized : false},
++        {"current_frame", current_frame_}
++      };
++      return response;
++    }
++
++    void RunSparkPolicyServer(const std::string& endpoint) {
++      if (!policy_server_mode_) {
++        throw std::runtime_error("RunSparkPolicyServer called when policy_server_mode_ is false");
++      }
++      zmq::context_t context(1);
++      zmq::socket_t socket(context, zmq::socket_type::rep);
++      socket.set(zmq::sockopt::linger, 0);
++      socket.bind(endpoint);
++      std::cout << "[SparkPolicyServer] Listening on " << endpoint << std::endl;
++
++      while (!operator_state.stop) {
++        zmq::message_t message;
++        auto recv_result = socket.recv(message, zmq::recv_flags::none);
++        if (!recv_result.has_value()) {
++          continue;
++        }
++
++        nlohmann::json request;
++        nlohmann::json response;
++        std::string error_message;
++        bool ok = false;
++        try {
++          request = nlohmann::json::parse(
++            static_cast<const char*>(message.data()),
++            static_cast<const char*>(message.data()) + message.size()
++          );
++          ApplySparkPolicyRequest(request);
++          ok = RunSparkPolicyTick(error_message);
++          response = BuildSparkPolicyResponse(request, ok, error_message);
++        } catch (const std::exception& e) {
++          response = {
++            {"ok", false},
++            {"seq", request.value("seq", -1)},
++            {"error", e.what()}
++          };
++        }
++
++        const std::string payload = response.dump();
++        socket.send(zmq::buffer(payload), zmq::send_flags::none);
++      }
++    }
++
+     /// Write a zero-torque, damping-only motor command (safe shutdown pose).
+     void CreateDampingCommand() {
+       MotorCommand motor_command_tmp;
+@@ -2983,15 +3301,17 @@ class G1Deploy {
+       auto low_state_data = low_state_buffer_.GetDataWithTime();
+       bool low_state_late = (std::chrono::steady_clock::now() - low_state_data.timestamp) > LOW_STATE_LATE_THRESHOLD;
+ 
+-      audio_thread_->SetCommand(
+-        AudioCommand{
+-          .streaming_data_absent = streaming_data_absent_debouncer_.state(),
+-          .motor_error = error_monitor_.hasErrors(),
+-          .low_state_late = low_state_late,
+-          .tts_message = std::move(pending_tts_),
+-          .high_temperature = high_temp_warning_,
+-          .high_temperature_message = high_temp_message_,
+-        });
++      if (audio_thread_) {
++        audio_thread_->SetCommand(
++          AudioCommand{
++            .streaming_data_absent = streaming_data_absent_debouncer_.state(),
++            .motor_error = error_monitor_.hasErrors(),
++            .low_state_late = low_state_late,
++            .tts_message = std::move(pending_tts_),
++            .high_temperature = high_temp_warning_,
++            .high_temperature_message = high_temp_message_,
++          });
++      }
+       pending_tts_.clear();
+ 
+       // if encoder mode is not -2, we need to get the token state data either from the encoder or the external token state
+@@ -4125,6 +4445,8 @@ int main(int argc, char const* argv[]) {
+     std::cout << "  --zmq-verbose: enable ZMQ subscriber verbose logs" << std::endl;
+     std::cout << "  --zmq-out-port <port>: ZMQ port for output (default: 5557)" << std::endl;
+     std::cout << "  --zmq-out-topic <topic>: ZMQ topic/prefix for output (default: g1_debug)" << std::endl;
++    std::cout << "  --spark-policy-server: run as a SPARK JSON/ZMQ policy server instead of DDS deployment" << std::endl;
++    std::cout << "  --spark-policy-endpoint <endpoint>: SPARK policy server bind endpoint (default: tcp://127.0.0.1:5560)" << std::endl;
+     std::cout << "  --logs-dir <path>: optional logs output base directory (default: logs/<timestamp>/)" << std::endl;
+     std::cout << "  --enable-csv-logs: enable writing CSV logs (default: OFF)" << std::endl;
+     std::cout << "  --enable-motion-recording: enable motion recording for ZMQ/planner (default: OFF)" << std::endl;
+@@ -4175,6 +4497,8 @@ int main(int argc, char const* argv[]) {
+   bool enableMotionRecording = false;  // default off; enable with --enable-motion-recording
+   int zmq_out_port = 5557;
+   std::string zmq_out_topic = "g1_debug";
++  bool spark_policy_server = false;
++  std::string spark_policy_endpoint = "tcp://127.0.0.1:5560";
+   std::array<double, 3> initial_compliance = {0.5, 0.5, 0.0}; // initial compliance is 0.5 for both hands (keyboard controllable)
+   double initial_max_close_ratio = 1.0; // default allows full closure, use --max-close-ratio to limit
+   for (int i = 4; i < argc; i++) {
+@@ -4281,6 +4605,19 @@ int main(int argc, char const* argv[]) {
+       if (i + 1 < argc) { zmq_out_port = std::stoi(argv[i + 1]); i++; }
+     } else if (std::string(argv[i]) == "--zmq-out-topic") {
+       if (i + 1 < argc) { zmq_out_topic = argv[i + 1]; i++; }
++    } else if (std::string(argv[i]) == "--spark-policy-server") {
++      spark_policy_server = true;
++      outputType = "none";
++      std::cout << "[INFO] SPARK policy server mode enabled" << std::endl;
++    } else if (std::string(argv[i]) == "--spark-policy-endpoint") {
++      if (i + 1 < argc) {
++        spark_policy_endpoint = argv[i + 1];
++        std::cout << "[INFO] SPARK policy endpoint: " << spark_policy_endpoint << std::endl;
++        i++;
++      } else {
++        std::cerr << "Error: --spark-policy-endpoint requires an endpoint argument" << std::endl;
++        exit(1);
++      }
+     } else if (std::string(argv[i]) == "--record-input-file") {
+       if (i + 1 < argc) {
+         recordInputFile = argv[i + 1];
+@@ -4438,9 +4775,17 @@ int main(int argc, char const* argv[]) {
+     zmq_out_topic,
+     enableMotionRecording,
+     initial_compliance,
+-    initial_max_close_ratio
++    initial_max_close_ratio,
++    spark_policy_server
+   );
+   std::cout << "[DEBUG] G1Deploy object created successfully!" << std::endl;
++
++  if (spark_policy_server) {
++    custom.RunSparkPolicyServer(spark_policy_endpoint);
++    custom.Stop();
++    std::cout << "[DEBUG] SPARK policy server exiting normally..." << std::endl;
++    return 0;
++  }
+   
+   // Main application loop - check both operator_state.stop and ROS2 status if using ROS2
+ #if HAS_ROS2
+@@ -4465,4 +4810,3 @@ int main(int argc, char const* argv[]) {
+   std::cout << "[DEBUG] Program exiting normally..." << std::endl;
+   return 0;
+ }
+-
